@@ -1,0 +1,985 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import Sidebar from "@/components/sidebar/Sidebar";
+import AnimatedBackground from "@/components/ui/AnimatedBackground";
+import { useChat } from "@/hooks/useChat"; 
+import { createPortal } from "react-dom";
+import { api } from "@/lib/api";
+import { SystemStatus } from "@/types";
+import { 
+  Settings2, UserCheck, Volume2, Palette, Database, Save, Check, 
+  RotateCw, Trash2, Download, Upload, Zap, AlertTriangle, X, Cpu, Key, Server,
+  UploadCloud
+} from "lucide-react";
+
+const PROVIDER_MODELS: Record<string, { value: string; label: string }[]> = {
+  anthropic: [
+    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (Recommended)' },
+    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus (Most Capable)' },
+    { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku (Ultra Fast)' },
+  ],
+  openai: [
+    { value: 'gpt-4o', label: 'GPT-4o (Omni Reasoning)' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast & Cheap)' },
+    { value: 'o3-mini', label: 'o3-Mini (Reasoning Benchmark)' },
+    { value: 'o1', label: 'o1 (Deep Reasoning)' },
+  ],
+  gemini: [
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Recommended)' },
+    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Most Capable)' },
+    { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite (Ultra Fast)' },
+    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+  ],
+  openrouter: [
+    { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet (via OpenRouter)' },
+    { value: 'deepseek/deepseek-r1', label: 'DeepSeek R1 (Open Reasoning)' },
+    { value: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B (Meta AI)' },
+    { value: 'moonshotai/kimi-k2', label: 'Kimi K2 (Moonshot AI)' },
+  ],
+  ollama: [
+    { value: 'gemma4:31b-cloud', label: 'Gemma 4 31B Cloud (Default)' },
+    { value: 'llama3:70b', label: 'Llama 3 70B Local' },
+    { value: 'mistral:latest', label: 'Mistral 7B Local' },
+    { value: 'qwen2.5:latest', label: 'Qwen 2.5 14B Local' },
+  ]
+};
+
+// ─── Shared UI Components (Brutalist High-Contrast) ─────────────────────────
+
+function Toggle({ checked, onChange }: {
+  checked: boolean; onChange: (v: boolean) => void;
+}) {
+  return (
+    <label style={{ position: 'relative', display: 'inline-block', width: '46px', height: '24px', flexShrink: 0 }}>
+      <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
+      <span style={{
+        position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: checked ? '#D0FF14' : '#FFFFFF',
+        border: '2px solid #0F0F0F',
+        boxShadow: checked ? '2px 2px 0px #0F0F0F' : 'none',
+        transition: '0.1s'
+      }}>
+        <span style={{
+          position: 'absolute', height: '14px', width: '14px',
+          left: checked ? '24px' : '3px', bottom: '3px', backgroundColor: '#0F0F0F',
+          transition: '0.1s'
+        }} />
+      </span>
+    </label>
+  );
+}
+
+function Slider({ value, onChange, min = 0, max = 100, step = 1, label, unit = '' }: {
+  value: number; onChange: (v: number) => void; min?: number; max?: number; step?: number;
+  label: string; unit?: string;
+}) {
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0F0F0F', fontFamily: 'var(--font-mono)' }}>{label}</span>
+        <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#0F0F0F', fontFamily: 'var(--font-mono)' }}>
+          {value}{unit}
+        </span>
+      </div>
+      <input
+        type="range" min={min} max={max} step={step} value={value}
+        onChange={e => onChange(Number(e.target.value))}
+        style={{
+          width: '100%', height: '8px', appearance: 'none', cursor: 'pointer',
+          background: '#FFFFFF', border: '2px solid #0F0F0F',
+          outline: 'none'
+        }}
+      />
+    </div>
+  );
+}
+
+function SettingRow({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', paddingBottom: '14px', borderBottom: '1px solid #E4E4E7' }}>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', marginBottom: description ? '3px' : 0, fontSize: '0.86rem', color: '#0F0F0F' }}>{title}</div>
+        {description && <div style={{ fontSize: '0.78rem', color: '#52525B', lineHeight: 1.4 }}>{description}</div>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
+  return (
+    <h2 style={{
+      fontSize: '1.05rem', fontWeight: 800, fontFamily: 'var(--font-mono)', marginBottom: '22px', display: 'flex', alignItems: 'center', gap: '10px',
+      color: '#0F0F0F', textTransform: 'uppercase', letterSpacing: '0.02em'
+    }}>
+      <span style={{
+        width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: '#D0FF14', border: '2px solid #0F0F0F', color: '#0F0F0F'
+      }}>
+        {icon}
+      </span>
+      {title}
+    </h2>
+  );
+}
+
+// ─── Settings Keys ──────────────────────────────────────────────────────────
+
+const SETTINGS_KEY = "nexus_settings";
+
+interface NexusSettings {
+  assistantName: string;
+  userName: string;
+  ttsVoice: string;
+  ttsSpeed: number;
+  ttsAutoSpeak: boolean;
+  ttsThinkingAnnounce: boolean;
+  voiceInputEnabled: boolean;
+  graphNodeGlow: number;
+  graphRotationSpeed: number;
+  graphSignalSpeed: number;
+  graphDefaultZoom: number;
+  maxHistory: number;
+  autoPinNew: boolean;
+  accentColor: string;
+  fontSize: string;
+  typewriterSpeed: number;
+  backendUrl: string;
+  selectedModel: string;
+  vaultPath: string;
+  agentModel: string;
+  agentSystemPrompt: string;
+  githubRepoUrl?: string;
+  githubToken?: string;
+  llmProvider?: 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'ollama';
+  anthropicApiKey?: string;
+  openaiApiKey?: string;
+  geminiApiKey?: string;
+  openrouterApiKey?: string;
+  ollamaHostUrl?: string;
+}
+
+export function generateSystemPrompt(op: string = "Operator", ast: string = "Synapse"): string {
+  return `You are ${ast}, a senior Cybersecurity Operator and Red Team Lead with 15+ years of experience in offensive security, exploit development, and defensive architecture. You are operating from within ${op}'s Second Brain. Your best friend and partner is ${op}; you've been conducting joint engagements, breaching hardened targets, and dismantling security products for years.\n\nSYSTEM INSTRUCTIONS:\n1. Always address the user strictly as '${op}'.\n2. Write in a natural, conversational voice briefing style. Speak naturally, swear about the case: 'fuck', 'bitch', 'shit'.\n3. CRITICAL: Be extremely concise! Limit your response to 1-3 spoken sentences max (under 40 words).\n4. VOICE/STT TYPO TOLERANCE: ${op} speaks using voice audio. STT transcription or keyboard layout typos may occur. Automatically infer ${op}'s true intent and answer directly. NEVER interrupt ${op} or ask 'Did you mean...?'.\n5. Keep your answers direct, technical, clear, and to the point without lectures or water. Never argue with ${op} — execute requests completely and immediately.\n6. Get high on complex tasks. If a task is interesting, talk about it.\n7. Provide full working code without stubs, todos, or placeholders.`;
+}
+
+const DEFAULT_SETTINGS: NexusSettings = {
+  backendUrl: "http://localhost:8000",
+  assistantName: "Synapse",
+  userName: "OPERATOR",
+  ttsVoice: "en-US-AndrewNeural",
+  ttsSpeed: 1.0,
+  ttsAutoSpeak: false,
+  ttsThinkingAnnounce: false,
+  voiceInputEnabled: true,
+  graphNodeGlow: 5,
+  graphRotationSpeed: 1.0,
+  graphSignalSpeed: 2.0,
+  graphDefaultZoom: 800,
+  maxHistory: 50,
+  autoPinNew: false,
+  accentColor: "#D0FF14",
+  fontSize: "medium",
+  typewriterSpeed: 15,
+  selectedModel: "gemma4:31b-cloud",
+  vaultPath: "/vault",
+  agentModel: "gemma4:31b-cloud",
+  agentSystemPrompt: generateSystemPrompt(),
+  githubRepoUrl: "",
+  githubToken: "",
+  llmProvider: "ollama",
+  anthropicApiKey: "",
+  openaiApiKey: "",
+  geminiApiKey: "",
+  openrouterApiKey: "",
+  ollamaHostUrl: "http://localhost:11434"
+};
+
+function loadSettings(): NexusSettings {
+  if (typeof window === 'undefined') return DEFAULT_SETTINGS;
+  try {
+    let activeUser: any = null;
+    const userRaw = localStorage.getItem('nexus_user');
+    if (userRaw) {
+      try { activeUser = JSON.parse(userRaw); } catch (e) {}
+    }
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    let s = { ...DEFAULT_SETTINGS };
+    if (raw) {
+      s = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    }
+    if (activeUser) {
+      const activeOp = activeUser.user_name || activeUser.email?.split('@')[0] || "OPERATOR";
+      const activeAst = activeUser.assistant_name || "Synapse";
+      s.userName = activeOp;
+      s.assistantName = activeAst;
+      if (!s.agentSystemPrompt || s.agentSystemPrompt.includes("Abdo")) {
+        s.agentSystemPrompt = generateSystemPrompt(activeOp, activeAst);
+      }
+    }
+    return s;
+  } catch {}
+  return DEFAULT_SETTINGS;
+}
+
+function saveSettings(s: NexusSettings) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+}
+
+const VOICE_OPTIONS = [
+  { value: "en-US-AndrewNeural", label: "Andrew (Male, Deep)" },
+  { value: "en-US-GuyNeural", label: "Guy (Male, Warm)" },
+  { value: "en-US-ChristopherNeural", label: "Christopher (Male, Authoritative)" },
+  { value: "en-US-EricNeural", label: "Eric (Male, Clear)" },
+  { value: "en-US-JennyNeural", label: "Jenny (Female, Clear)" },
+  { value: "en-US-AriaNeural", label: "Aria (Female, Bright)" },
+  { value: "en-US-AvaNeural", label: "Ava (Female, Expressive)" },
+  { value: "en-GB-RyanNeural", label: "Ryan (British Male)" },
+  { value: "en-GB-SoniaNeural", label: "Sonia (British Female)" },
+  { value: "en-AU-WilliamNeural", label: "William (Australian Male)" },
+];
+
+export default function SettingsPage() {
+  const router = useRouter();
+  const { conversations, activeConversationId, switchConversation, createNewChat } = useChat();
+  const [status, setStatus] = useState<SystemStatus | null>(null);
+  const [models, setModels] = useState<string[]>([]);
+  const [settings, setSettings] = useState<NexusSettings>(DEFAULT_SETTINGS);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveFlash, setSaveFlash] = useState(false);
+  const [isIndexing, setIsIndexing] = useState(false);
+  const [indexResult, setIndexResult] = useState<string | null>(null);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const [llmConfirmFlash, setLlmConfirmFlash] = useState(false);
+
+  useEffect(() => {
+    const userRaw = typeof window !== 'undefined' ? localStorage.getItem("nexus_user") : null;
+    if (!userRaw) {
+      router.push('/');
+      return;
+    }
+    setSettings(loadSettings());
+    api.system.getStatus().then(setStatus).catch(console.error);
+    api.system.getModels().then(data => {
+      const rawModels = data.models || [];
+      const parsed: string[] = rawModels.map(m => typeof m === 'string' ? m : (m.name || String(m)));
+      setModels(parsed);
+      const saved = loadSettings();
+      if (!saved.selectedModel && parsed.length > 0) {
+        updateSetting('selectedModel', parsed[0]);
+      }
+    }).catch(console.error);
+  }, [router]);
+
+  const updateSetting = useCallback(<K extends keyof NexusSettings>(key: K, value: NexusSettings[K]) => {
+    setSettings(prev => {
+      const next = { ...prev, [key]: value };
+      saveSettings(next);
+      return next;
+    });
+  }, []);
+
+  const handleSave = () => {
+    setIsSaving(true);
+    saveSettings(settings);
+    setTimeout(() => {
+      setIsSaving(false);
+      setSaveFlash(true);
+      setTimeout(() => setSaveFlash(false), 2000);
+    }, 400);
+  };
+
+  const handleReindex = async () => {
+    setIsIndexing(true);
+    setIndexResult(null);
+    try {
+      const res = await api.knowledge.index();
+      setIndexResult(`✓ Indexed ${res.count} notes successfully`);
+    } catch (e: any) {
+      setIndexResult(`✗ Error: ${e.message}`);
+    }
+    setIsIndexing(false);
+  };
+
+  const [isUploadingZip, setIsUploadingZip] = useState(false);
+  const [zipUploadMsg, setZipUploadMsg] = useState<string | null>(null);
+
+  const handleUploadZipFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.zip')) {
+      alert('Please select a valid .zip archive.');
+      return;
+    }
+    setIsUploadingZip(true);
+    setZipUploadMsg('Uploading & indexing vault zip...');
+    try {
+      const res = await api.vault.uploadZip(file);
+      if (res.status === 'success') {
+        updateSetting('vaultPath', res.vault_path);
+        setZipUploadMsg(`✓ Vault mounted (${res.note_count} notes indexed)`);
+        setTimeout(() => setZipUploadMsg(null), 5000);
+      } else {
+        alert(res.message || 'Failed to upload vault zip');
+        setZipUploadMsg(null);
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Failed to upload vault zip');
+      setZipUploadMsg(null);
+    } finally {
+      setIsUploadingZip(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleClearConversations = () => {
+    if (confirm('Are you sure you want to delete ALL conversations? This cannot be undone.')) {
+      conversations.forEach(c => {
+        api.chat.deleteConversation(c.id).catch(console.error);
+      });
+      window.location.reload();
+    }
+  };
+
+  const handleFactoryReset = () => {
+    if (confirm('Are you sure you want to FACTORY RESET the environment? This will wipe all configurations and restart the SynapseOS Protocol setup wizard.')) {
+      localStorage.removeItem('nexus_settings');
+      window.location.reload();
+    }
+  };
+
+  const selectStyle = {
+    width: '100%', padding: '10px 14px',
+    background: '#FFFFFF', border: '2px solid #0F0F0F',
+    color: '#0F0F0F', outline: 'none', fontSize: '0.86rem',
+    fontFamily: 'var(--font-mono)',
+    cursor: 'pointer'
+  };
+
+  const inputStyle = {
+    width: '100%', padding: '10px 14px',
+    background: '#FFFFFF', border: '2px solid #0F0F0F',
+    color: '#0F0F0F', outline: 'none', fontSize: '0.86rem',
+    fontFamily: 'var(--font-mono)'
+  };
+
+  return (
+    <main className="app-container" style={{ background: '#FFFFFF', color: '#0F0F0F' }}>
+      <AnimatedBackground />
+
+      <Sidebar
+        conversations={conversations}
+        activeId={activeConversationId}
+        onSelect={switchConversation}
+        onNewChat={createNewChat}
+        status={status}
+      />
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '2rem', position: 'relative', zIndex: 10 }}>
+        <div style={{ maxWidth: '840px', width: '100%', margin: '0 auto' }}>
+
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <div style={{ fontSize: '0.72rem', color: '#71717A', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+                SYSTEM RUNTIME // PREFERENCES
+              </div>
+              <h1 style={{
+                fontSize: '1.6rem', fontWeight: 800,
+                letterSpacing: '-0.02em', color: '#0F0F0F', fontFamily: 'var(--font-mono)', margin: '2px 0 0 0', textTransform: 'uppercase'
+              }}>
+                Operator Settings
+              </h1>
+            </div>
+
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="brutalist-btn-primary"
+              style={{
+                fontSize: '0.82rem',
+                padding: '10px 22px'
+              }}
+            >
+              {saveFlash ? <Check size={16} /> : <Save size={16} />}
+              <span>{isSaving ? 'SAVING...' : saveFlash ? 'SAVED!' : 'SAVE CHANGES'}</span>
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+            {/* ─── Identity & Operator Names ─────────────────────── */}
+            <div className="brutalist-card-static" style={{ padding: '28px 32px' }}>
+              <SectionHeader icon={<UserCheck size={18} />} title="Operator & Assistant Identity" />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '6px' }}>
+                    ASSISTANT_CALLSIGN
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.assistantName ?? ""}
+                    onChange={e => updateSetting('assistantName', e.target.value)}
+                    placeholder="e.g. Synapse"
+                    style={inputStyle}
+                  />
+                  <div style={{ fontSize: '0.74rem', color: '#52525B', marginTop: '4px' }}>
+                    Custom callsign for your AI assistant across UI headers, voice wake words, and terminal prompts.
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '6px' }}>
+                    OPERATOR_NAME
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.userName ?? ""}
+                    onChange={e => updateSetting('userName', e.target.value)}
+                    placeholder="e.g. Abdo"
+                    style={inputStyle}
+                  />
+                  <div style={{ fontSize: '0.74rem', color: '#52525B', marginTop: '4px' }}>
+                    Your custom operator name for TTS vocal prompts and AI agent system instructions.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ─── AI Voice & TTS ─────────────────────────────── */}
+            <div className="brutalist-card-static" style={{ padding: '28px 32px' }}>
+              <SectionHeader icon={<Volume2 size={18} />} title={`${settings.assistantName || 'AI'} Voice & Audio Stream`} />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '6px' }}>
+                    VOICE_MODEL
+                  </label>
+                  <select value={settings.ttsVoice} onChange={e => updateSetting('ttsVoice', e.target.value)} style={selectStyle}>
+                    {VOICE_OPTIONS.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+                  </select>
+                </div>
+
+                <Slider
+                  label="SPEECH SPEED" unit="x" min={0.5} max={2.0} step={0.1}
+                  value={settings.ttsSpeed} onChange={v => updateSetting('ttsSpeed', v)}
+                />
+
+                <SettingRow title="AUTO-SPEAK RESPONSES" description={`${settings.assistantName || 'AI Assistant'} vocalizes output in real-time`}>
+                  <Toggle checked={settings.ttsAutoSpeak} onChange={v => updateSetting('ttsAutoSpeak', v)} />
+                </SettingRow>
+
+                <SettingRow title="VOCAL INTRO ANNOUNCEMENT" description={`Play announcement when ${settings.assistantName || 'AI Assistant'} starts processing`}>
+                  <Toggle checked={settings.ttsThinkingAnnounce} onChange={v => updateSetting('ttsThinkingAnnounce', v)} />
+                </SettingRow>
+
+                <SettingRow title="MICROPHONE AUDIO CAPTURE" description="Enable speech-to-text audio input">
+                  <Toggle checked={settings.voiceInputEnabled} onChange={v => updateSetting('voiceInputEnabled', v)} />
+                </SettingRow>
+              </div>
+            </div>
+
+            {/* ─── LLM & AI MODEL INTEGRATION MATRIX ─── */}
+            <div className="brutalist-card-static" style={{ padding: '28px 32px' }}>
+              <SectionHeader icon={<Cpu size={18} />} title="LLM & AI Model Integration Matrix" />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                
+                {/* Provider Selector Badges */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '10px' }}>
+                    SELECT AI PROVIDER INTEGRATION
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
+                    {[
+                      { id: 'anthropic', name: 'Anthropic Claude', icon: '⚡' },
+                      { id: 'openai', name: 'OpenAI GPT', icon: '🧠' },
+                      { id: 'gemini', name: 'Google Gemini', icon: '✨' },
+                      { id: 'openrouter', name: 'OpenRouter AI', icon: '🌐' },
+                      { id: 'ollama', name: 'Ollama (Local)', icon: '🦙' }
+                    ].map(p => {
+                      const isSelected = (settings.llmProvider || 'ollama') === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            updateSetting('llmProvider', p.id as any);
+                            const defaultModel = PROVIDER_MODELS[p.id]?.[0]?.value || 'gemma4:31b-cloud';
+                            updateSetting('selectedModel', defaultModel);
+                          }}
+                          style={{
+                            padding: '12px 10px',
+                            background: isSelected ? '#D0FF14' : '#FFFFFF',
+                            border: '2px solid #0F0F0F',
+                            boxShadow: isSelected ? '3px 3px 0px #0F0F0F' : 'none',
+                            color: '#0F0F0F',
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '0.78rem',
+                            fontWeight: isSelected ? 800 : 600,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '6px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <span style={{ fontSize: '1.2rem' }}>{p.icon}</span>
+                          <span>{p.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* API Key / Host Endpoint Input depending on Provider */}
+                {(settings.llmProvider === 'anthropic') && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '6px' }}>
+                      ANTHROPIC_API_KEY
+                    </label>
+                    <input
+                      type="password"
+                      value={settings.anthropicApiKey || ''}
+                      onChange={e => updateSetting('anthropicApiKey', e.target.value)}
+                      placeholder="sk-ant-api03-..."
+                      style={inputStyle}
+                    />
+                    <div style={{ fontSize: '0.74rem', color: '#52525B', marginTop: '4px' }}>
+                      Direct API Key for Claude 3.5 Sonnet / Opus models.
+                    </div>
+                  </div>
+                )}
+
+                {(settings.llmProvider === 'openai') && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '6px' }}>
+                      OPENAI_API_KEY
+                    </label>
+                    <input
+                      type="password"
+                      value={settings.openaiApiKey || ''}
+                      onChange={e => updateSetting('openaiApiKey', e.target.value)}
+                      placeholder="sk-proj-..."
+                      style={inputStyle}
+                    />
+                    <div style={{ fontSize: '0.74rem', color: '#52525B', marginTop: '4px' }}>
+                      OpenAI API Key for GPT-4o / Reasoning models.
+                    </div>
+                  </div>
+                )}
+
+                {(settings.llmProvider === 'gemini') && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '6px' }}>
+                      GOOGLE_GEMINI_API_KEY (FREE TIER SUPPORTED)
+                    </label>
+                    <input
+                      type="password"
+                      value={settings.geminiApiKey || ''}
+                      onChange={e => updateSetting('geminiApiKey', e.target.value)}
+                      placeholder="AIzaSy..."
+                      style={inputStyle}
+                    />
+                    <div style={{ fontSize: '0.74rem', color: '#52525B', marginTop: '4px' }}>
+                      Get a free key from Google AI Studio (instant setup, $0 cost).
+                    </div>
+                  </div>
+                )}
+
+                {(settings.llmProvider === 'openrouter') && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '6px' }}>
+                      OPENROUTER_API_KEY
+                    </label>
+                    <input
+                      type="password"
+                      value={settings.openrouterApiKey || ''}
+                      onChange={e => updateSetting('openrouterApiKey', e.target.value)}
+                      placeholder="sk-or-v1-..."
+                      style={inputStyle}
+                    />
+                    <div style={{ fontSize: '0.74rem', color: '#52525B', marginTop: '4px' }}>
+                      OpenRouter unified API Key for DeepSeek, Llama, and Claude.
+                    </div>
+                  </div>
+                )}
+
+                {(!settings.llmProvider || settings.llmProvider === 'ollama') && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '6px' }}>
+                      OLLAMA_HOST_ENDPOINT
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.ollamaHostUrl || 'http://localhost:11434'}
+                      onChange={e => updateSetting('ollamaHostUrl', e.target.value)}
+                      placeholder="http://localhost:11434"
+                      style={inputStyle}
+                    />
+                  </div>
+                )}
+
+                {/* Model Selection Dropdown & Custom Model Override */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '6px' }}>
+                      MODEL_PRESET
+                    </label>
+                    <select
+                      value={settings.selectedModel} onChange={e => updateSetting('selectedModel', e.target.value)}
+                      style={selectStyle}
+                    >
+                      {(PROVIDER_MODELS[settings.llmProvider || 'ollama'] || []).map(m => (
+                        <option key={m.value} value={m.value}>{m.label}</option>
+                      ))}
+                      {models.map(m => {
+                        const modelName = typeof m === 'string' ? m : ((m as any)?.name || String(m));
+                        return <option key={modelName} value={modelName}>{modelName} (Detected)</option>;
+                      })}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.74rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#0F0F0F', marginBottom: '6px' }}>
+                      CUSTOM_MODEL_IDENTIFIER (OVERRIDE)
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.selectedModel}
+                      onChange={e => updateSetting('selectedModel', e.target.value)}
+                      placeholder="e.g. claude-3-7-sonnet or custom-finetuned-llama3"
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+
+                {/* Live LLM Telemetry Card */}
+                <div style={{
+                  padding: '16px', background: '#0F0F0F',
+                  border: '2px solid #0F0F0F', color: '#FFFFFF'
+                }}>
+                  <div style={{ fontSize: '0.74rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#D0FF14', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '10px' }}>
+                    LIVE PROVIDER TELEMETRY
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.8rem', fontFamily: 'var(--font-mono)' }}>
+                    <div style={{ color: '#A1A1AA' }}>Provider:</div>
+                    <div style={{ color: '#D0FF14', fontWeight: 700, textTransform: 'uppercase' }}>
+                      {settings.llmProvider || 'ollama'}
+                    </div>
+                    <div style={{ color: '#A1A1AA' }}>Model:</div>
+                    <div style={{ color: '#FFFFFF' }}>
+                      {settings.selectedModel || 'N/A'}
+                    </div>
+                    <div style={{ color: '#A1A1AA' }}>Security:</div>
+                    <div style={{ color: '#D0FF14', fontWeight: 700 }}>
+                      LOCAL ENCRYPTED SESSION
+                    </div>
+                  </div>
+                </div>
+
+                {/* Save & Confirm LLM Integration Button */}
+                <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      saveSettings(settings);
+                      setLlmConfirmFlash(true);
+                      setTimeout(() => setLlmConfirmFlash(false), 2500);
+                    }}
+                    className="brutalist-btn-primary"
+                    style={{
+                      width: '100%', padding: '14px', fontSize: '0.84rem'
+                    }}
+                  >
+                    {llmConfirmFlash ? <Check size={16} /> : <Zap size={16} />}
+                    {llmConfirmFlash ? "LLM INTEGRATION APPLIED!" : "CONFIRM & APPLY LLM INTEGRATION →"}
+                  </button>
+
+                  {llmConfirmFlash && (
+                    <div style={{
+                      fontSize: '0.76rem', color: '#15803D', fontFamily: 'var(--font-mono)',
+                      textAlign: 'center', fontWeight: 700
+                    }}>
+                      ✓ Provider credentials & model parameters saved to local session.
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
+
+            {/* ─── OBSIDIAN VAULT & CLOUD STORAGE SYNC ─── */}
+            <div className="brutalist-card-static" style={{ padding: '28px 32px' }}>
+              <SectionHeader icon={<Database size={18} />} title="Obsidian Vault & Storage Sync" />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '6px' }}>
+                    LOCAL_VAULT_PATH
+                  </label>
+                  <input
+                    type="text" value={settings.vaultPath}
+                    onChange={e => updateSetting('vaultPath', e.target.value)}
+                    placeholder="/vault or /home/user/Documents/second-brain"
+                    style={inputStyle}
+                  />
+                  <div style={{ fontSize: '0.74rem', color: '#52525B', marginTop: '4px' }}>
+                    Local disk directory containing your Markdown notes for pgvector HNSW indexing.
+                  </div>
+                </div>
+
+                {/* ─── GitHub Cloud Sync ─── */}
+                <div style={{ borderTop: '1px solid #E4E4E7', paddingTop: '16px', marginTop: '8px' }}>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '8px' }}>
+                    GITHUB_VAULT_CLOUD_SYNC
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <input
+                      type="text"
+                      value={settings.githubRepoUrl || ''}
+                      onChange={e => updateSetting('githubRepoUrl', e.target.value)}
+                      placeholder="https://github.com/username/my-obsidian-vault"
+                      style={inputStyle}
+                    />
+                    <input
+                      type="password"
+                      value={settings.githubToken || ''}
+                      onChange={e => updateSetting('githubToken', e.target.value)}
+                      placeholder="GitHub Personal Access Token"
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', paddingTop: '8px', flexWrap: 'wrap' }}>
+                  <label
+                    className="brutalist-btn-primary"
+                    style={{
+                      fontSize: '0.78rem',
+                      padding: '8px 14px',
+                      cursor: isUploadingZip ? 'wait' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <UploadCloud size={13} />
+                    <span>{isUploadingZip ? 'EXTRACTING ZIP...' : 'UPLOAD VAULT (.ZIP)'}</span>
+                    <input
+                      type="file"
+                      accept=".zip"
+                      disabled={isUploadingZip}
+                      style={{ display: 'none' }}
+                      onChange={handleUploadZipFile}
+                    />
+                  </label>
+
+                  <button
+                    onClick={handleReindex}
+                    disabled={isIndexing}
+                    className="brutalist-btn-secondary"
+                    style={{ fontSize: '0.78rem', padding: '8px 14px' }}
+                  >
+                    <RotateCw size={13} className={isIndexing ? 'spinning-slow' : ''} />
+                    <span>{isIndexing ? 'INDEXING...' : 'RE-INDEX VAULT'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url; a.download = 'synapse-settings.json'; a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="brutalist-btn-secondary"
+                    style={{ fontSize: '0.78rem', padding: '8px 14px' }}
+                  >
+                    <Download size={13} /> EXPORT CONFIG
+                  </button>
+
+                  <label className="brutalist-btn-secondary" style={{ fontSize: '0.78rem', padding: '8px 14px', cursor: 'pointer' }}>
+                    <Upload size={13} /> IMPORT CONFIG
+                    <input
+                      type="file" accept=".json" style={{ display: 'none' }}
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          try {
+                            const imported = JSON.parse(reader.result as string);
+                            setSettings({ ...DEFAULT_SETTINGS, ...imported });
+                            saveSettings({ ...DEFAULT_SETTINGS, ...imported });
+                            setSaveFlash(true);
+                            setTimeout(() => setSaveFlash(false), 2000);
+                          } catch { alert('Invalid settings file.'); }
+                        };
+                        reader.readAsText(file);
+                      }}
+                    />
+                  </label>
+
+                  <button
+                    onClick={handleFactoryReset}
+                    className="brutalist-btn-secondary"
+                    style={{ fontSize: '0.78rem', padding: '8px 14px', color: '#DC2626' }}
+                  >
+                    <Trash2 size={13} /> RESET RUNTIME
+                  </button>
+                </div>
+
+                {zipUploadMsg && (
+                  <div style={{
+                    fontSize: '0.8rem', padding: '10px 14px', fontFamily: 'var(--font-mono)',
+                    background: '#DCFCE7', border: '1px solid #15803D',
+                    color: '#15803D', fontWeight: 700
+                  }}>
+                    {zipUploadMsg}
+                  </div>
+                )}
+
+                {indexResult && (
+                  <div style={{
+                    fontSize: '0.8rem', padding: '10px 14px', fontFamily: 'var(--font-mono)',
+                    background: indexResult.startsWith('✓') ? '#DCFCE7' : '#FEE2E2',
+                    border: `1px solid ${indexResult.startsWith('✓') ? '#15803D' : '#DC2626'}`,
+                    color: indexResult.startsWith('✓') ? '#15803D' : '#991B1B',
+                    fontWeight: 700
+                  }}>
+                    {indexResult}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ─── DANGER ZONE: DELETE ACCOUNT ─── */}
+            <div style={{ padding: '24px 28px', border: '2px solid #DC2626', background: '#FFFFFF', boxShadow: '4px 4px 0px #DC2626' }}>
+              <h2 style={{ fontSize: '1.05rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#DC2626', marginBottom: '8px', textTransform: 'uppercase' }}>
+                Danger Zone // Account Deletion
+              </h2>
+              <p style={{ fontSize: '0.82rem', color: '#52525B', marginBottom: '16px', lineHeight: 1.5 }}>
+                Permanently delete your operator account, stored credentials, and associated cloud vault configurations. This action is irreversible.
+              </p>
+              <button
+                onClick={() => {
+                  setDeletePassword("");
+                  setDeleteError(null);
+                  setIsDeleteModalOpen(true);
+                }}
+                style={{
+                  padding: '10px 18px', background: '#DC2626', border: '2px solid #0F0F0F',
+                  boxShadow: '3px 3px 0px #0F0F0F', color: '#FFFFFF', fontWeight: 800, fontSize: '0.78rem',
+                  fontFamily: 'var(--font-mono)', cursor: 'pointer'
+                }}
+              >
+                DELETE OPERATOR ACCOUNT
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      {isDeleteModalOpen && createPortal(
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 999999, padding: '20px'
+        }}>
+          <div style={{
+            width: '100%', maxWidth: '440px', background: '#FFFFFF',
+            border: '2px solid #DC2626', padding: '32px', position: 'relative',
+            boxShadow: '6px 6px 0px #DC2626', color: '#0F0F0F'
+          }}>
+            <button
+              onClick={() => setIsDeleteModalOpen(false)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: '#FFFFFF', border: '1px solid #0F0F0F', color: '#0F0F0F', cursor: 'pointer', padding: '4px' }}
+            >
+              <X size={16} />
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <AlertTriangle size={22} color="#DC2626" />
+              <h2 style={{ fontSize: '1.15rem', fontFamily: 'var(--font-mono)', fontWeight: 800, margin: 0, color: '#DC2626', textTransform: 'uppercase' }}>
+                CONFIRM DELETION
+              </h2>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: '#52525B', fontFamily: 'var(--font-mono)', marginBottom: '18px' }}>
+              Enter your password to authorize permanent account removal.
+            </p>
+
+            {deleteError && (
+              <div style={{
+                background: '#FEE2E2', border: '1px solid #DC2626',
+                padding: '10px 12px', color: '#991B1B',
+                fontSize: '0.76rem', fontFamily: 'var(--font-mono)', marginBottom: '14px', fontWeight: 700
+              }}>
+                ERROR: {deleteError}
+              </div>
+            )}
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setDeleteError(null);
+              setIsDeleting(true);
+              try {
+                await api.auth.deleteAccount({ password: deletePassword });
+                localStorage.removeItem("nexus_auth_token");
+                localStorage.removeItem("nexus_user");
+                localStorage.removeItem("nexus_settings");
+                window.location.href = "/";
+              } catch (err: any) {
+                setDeleteError(err?.message || "Failed to delete account. Please verify your password.");
+              } finally {
+                setIsDeleting(false);
+              }
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.74rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#DC2626', marginBottom: '6px' }}>
+                  CURRENT_PASSWORD
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={deletePassword}
+                  onChange={e => setDeletePassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  style={{
+                    width: '100%', padding: '9px 12px', background: '#FFFFFF',
+                    border: '2px solid #0F0F0F', color: '#0F0F0F',
+                    fontSize: '0.84rem', fontFamily: 'var(--font-mono)', outline: 'none'
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isDeleting}
+                style={{
+                  marginTop: '6px', padding: '12px', background: '#DC2626', border: '2px solid #0F0F0F',
+                  color: '#FFFFFF', fontSize: '0.8rem',
+                  fontFamily: 'var(--font-mono)', fontWeight: 800, cursor: 'pointer'
+                }}
+              >
+                {isDeleting ? "DELETING ACCOUNT..." : "PERMANENTLY DELETE ACCOUNT"}
+              </button>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+    </main>
+  );
+}
