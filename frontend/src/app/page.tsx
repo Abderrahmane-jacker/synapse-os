@@ -7,8 +7,6 @@ import Sidebar from "@/components/sidebar/Sidebar";
 import ChatWindow from "@/components/chat/ChatWindow";
 import InputBar from "@/components/chat/InputBar";
 import AnimatedBackground from "@/components/ui/AnimatedBackground";
-import SaaSHeroLanding from "@/components/landing/SaaSHeroLanding";
-import AuthModal from "@/components/auth/AuthModal";
 import VaultInitModal from "@/components/auth/VaultInitModal";
 import { useChat } from "@/hooks/useChat";
 import { api } from "@/lib/api";
@@ -310,12 +308,6 @@ export default function Home() {
 
         </div>
       </div>
-
-      <AuthModal 
-        isOpen={isAuthOpen} 
-        onClose={() => setIsAuthOpen(false)} 
-        onSuccess={handleAuthSuccess} 
-      />
 
       <VaultInitModal
         isOpen={isVaultInitOpen}

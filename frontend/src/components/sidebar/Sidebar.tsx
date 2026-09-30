@@ -8,9 +8,7 @@ import {
   Menu, X, Sparkles, Activity, ShieldCheck
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import AuthModal from '@/components/auth/AuthModal';
 import { Conversation, SystemStatus } from '@/types';
-
 interface SidebarProps {
   conversations: Conversation[];
   activeId: string | null;
@@ -39,7 +37,6 @@ export default function Sidebar({
   const [editTitle, setEditTitle] = useState("");
 
   const [assistantName, setAssistantName] = useState<string>('Synapse');
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
@@ -239,12 +236,6 @@ export default function Sidebar({
               <Link 
                 key={item.href}
                 href={item.href}
-                onClick={e => {
-                  if (item.href === '/settings' && !currentUser) {
-                    e.preventDefault();
-                    setIsAuthModalOpen(true);
-                  }
-                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -459,12 +450,6 @@ export default function Sidebar({
             </div>
           )}
         </div>
-
-        <AuthModal
-          isOpen={isAuthModalOpen}
-          onClose={() => setIsAuthModalOpen(false)}
-          onSuccess={(usr) => setCurrentUser(usr)}
-        />
       </aside>
     </>
   );

@@ -13,9 +13,7 @@ import {
   BookOpen, Target, Dna, Compass, FolderTree, Send, ArrowUpRight
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import AuthModal from "@/components/auth/AuthModal";
 import VaultInitModal from "@/components/auth/VaultInitModal";
-import GuestBanner from "@/components/ui/GuestBanner";
 
 function getCategoryMeta(categoryName: string) {
   const lower = categoryName.toLowerCase();
@@ -191,7 +189,6 @@ export default function DashboardPage() {
       overflow: 'hidden',
       position: 'relative'
     }}>
-      <GuestBanner />
 
       <div style={{
         flex: 1,
@@ -290,14 +287,8 @@ export default function DashboardPage() {
 
               {/* Vault Path Badge */}
               <button 
-                onClick={() => {
-                  if (!isLoggedIn) {
-                    setIsAuthOpen(true);
-                  } else {
-                    setIsVaultInitOpen(true);
-                  }
-                }}
-                title={isLoggedIn ? "Click to configure or change Obsidian vault" : "Sign in to connect private vault"}
+                onClick={() => setIsVaultInitOpen(true)}
+                title="Click to configure or change Obsidian vault"
                 style={{
                   background: '#FFFFFF',
                   border: '1px solid #0F0F0F',
@@ -320,31 +311,25 @@ export default function DashboardPage() {
               >
                 <Folder size={14} color="#0F0F0F" />
                 <span style={{ fontWeight: 700 }}>
-                  {isLoggedIn ? (stats?.vault_path || '/vault') : '[DEMO] SynapseOS Virtual Vault'}
+                  {stats?.vault_path || '/vault'}
                 </span>
                 <span style={{ 
                   fontSize: '0.64rem', 
                   color: '#0F0F0F',
                   fontWeight: 800,
-                  background: isLoggedIn ? '#D0FF14' : '#F4F4F5',
+                  background: '#D0FF14',
                   border: '1px solid #0F0F0F',
                   padding: '1px 6px'
                 }}>
-                  {isLoggedIn ? 'SYNCED' : 'DEMO'}
+                  SYNCED
                 </span>
               </button>
 
               {/* Re-Index / Sync Vault Button */}
               <button
-                onClick={() => {
-                  if (!isLoggedIn) {
-                    setIsAuthOpen(true);
-                  } else {
-                    handleSyncVault();
-                  }
-                }}
+                onClick={() => handleSyncVault()}
                 disabled={isSyncing}
-                title={isLoggedIn ? "Re-index Obsidian Vault" : "Sign In to sync personal vault"}
+                title="Re-index Obsidian Vault"
                 className="brutalist-btn-secondary"
                 style={{
                   padding: '6px 12px',
@@ -1011,12 +996,6 @@ export default function DashboardPage() {
 
         </div>
       </div>
-
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-        onSuccess={() => setIsAuthOpen(false)}
-      />
 
       <VaultInitModal
         isOpen={isVaultInitOpen}

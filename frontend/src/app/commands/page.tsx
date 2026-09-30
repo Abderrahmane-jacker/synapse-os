@@ -6,7 +6,6 @@ import AnimatedBackground from "@/components/ui/AnimatedBackground";
 import { useChat } from "@/hooks/useChat";
 import { api } from "@/lib/api";
 import { SystemStatus } from "@/types";
-import AuthModal from "@/components/auth/AuthModal";
 import { 
   Search, Terminal, Copy, Check, Star, Filter, Folder, Tag, Play, 
   ExternalLink, Sparkles, RefreshCw, Zap, Shield, Code, Plus, X, FolderPlus,
@@ -624,12 +623,6 @@ export default function CommandsPage() {
         </div>
 
       </div>
-
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-        onSuccess={() => setIsAuthOpen(false)}
-      />
 
       {isAddModalOpen && typeof window !== 'undefined' && createPortal(
         <div style={{
