@@ -126,14 +126,7 @@ async def chat_stream(websocket: WebSocket):
 
 @router.get("/conversations", response_model=ConversationList)
 async def list_conversations(authorization: Optional[str] = Header(None)):
-    """List all conversations for authenticated user."""
-    if not authorization or not authorization.startswith("Bearer "):
-        return ConversationList(conversations=[])
-    token = authorization.split(" ")[1]
-    payload = decode_access_token(token)
-    if not payload or "sub" not in payload:
-        return ConversationList(conversations=[])
-    
+    """List all conversations for local operator or authenticated user."""
     convs = await db_manager.get_conversations()
     return ConversationList(conversations=convs)
 
@@ -141,13 +134,6 @@ async def list_conversations(authorization: Optional[str] = Header(None)):
 @router.post("/conversations")
 async def create_conversation(authorization: Optional[str] = Header(None)):
     """Create a new empty conversation."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Authentication required to create threads.")
-    token = authorization.split(" ")[1]
-    payload = decode_access_token(token)
-    if not payload or "sub" not in payload:
-        raise HTTPException(status_code=401, detail="Authentication required to create threads.")
-
     conv_id = await db_manager.create_conversation()
     return {"id": conv_id}
 
@@ -155,13 +141,6 @@ async def create_conversation(authorization: Optional[str] = Header(None)):
 @router.get("/history")
 async def get_history(conversation_id: str, authorization: Optional[str] = Header(None)):
     """Get all messages for a specific conversation."""
-    if not authorization or not authorization.startswith("Bearer "):
-        return []
-    token = authorization.split(" ")[1]
-    payload = decode_access_token(token)
-    if not payload or "sub" not in payload:
-        return []
-
     msgs = await db_manager.get_messages(conversation_id)
     return msgs
 
@@ -169,8 +148,6 @@ async def get_history(conversation_id: str, authorization: Optional[str] = Heade
 @router.delete("/conversations/{id}")
 async def delete_conversation(id: str, authorization: Optional[str] = Header(None)):
     """Delete a conversation and all its messages."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Authentication required.")
     await db_manager.delete_conversation(id)
     return {"status": "deleted"}
 
@@ -178,7 +155,5 @@ async def delete_conversation(id: str, authorization: Optional[str] = Header(Non
 @router.put("/conversations/{id}")
 async def update_conversation(id: str, title: str = None, is_pinned: bool = None, authorization: Optional[str] = Header(None)):
     """Update title or pinned status of a conversation."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Authentication required.")
     await db_manager.update_conversation(id, title=title, is_pinned=is_pinned)
     return {"status": "updated"}
