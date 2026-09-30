@@ -44,16 +44,24 @@ fi
 
 # 3. Check Backend Venv
 if [ ! -d "$BACKEND_DIR/venv" ]; then
-    echo "[!] Virtual environment not found at $BACKEND_DIR/venv."
-    exit 1
+    echo "[+] Creating virtual environment at $BACKEND_DIR/venv..."
+    python3 -m venv "$BACKEND_DIR/venv"
+    "$BACKEND_DIR/venv/bin/pip" install --upgrade pip
+    "$BACKEND_DIR/venv/bin/pip" install -r "$BACKEND_DIR/requirements.txt"
 fi
 
-# 4. Start Backend
+# 4. Check Frontend Dependencies
+if [ ! -d "$FRONTEND_DIR/node_modules" ]; then
+    echo "[+] Installing frontend node dependencies..."
+    (cd "$FRONTEND_DIR" && npm install)
+fi
+
+# 5. Start Backend
 echo "[+] Starting Backend on http://localhost:8000..."
 PYTHONPATH="$BACKEND_DIR" "$BACKEND_DIR/venv/bin/uvicorn" app.main:app --host 0.0.0.0 --port 8000 --app-dir "$BACKEND_DIR" --reload &
 BACKEND_PID=$!
 
-# 5. Start Frontend
+# 6. Start Frontend
 FRONTEND_PORT=3000
 if ss -tulpn | grep -q ":3000 "; then
     FRONTEND_PORT=3001
