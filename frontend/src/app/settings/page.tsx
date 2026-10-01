@@ -14,37 +14,169 @@ import {
   UploadCloud
 } from "lucide-react";
 
-const PROVIDER_MODELS: Record<string, { value: string; label: string }[]> = {
+interface ModelItem {
+  value: string;
+  label: string;
+  badge?: string;
+}
+
+interface ModelGroup {
+  group: string;
+  models: ModelItem[];
+}
+
+const PROVIDER_MODEL_GROUPS: Record<string, ModelGroup[]> = {
   anthropic: [
-    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (Recommended)' },
-    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus (Most Capable)' },
-    { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku (Ultra Fast)' },
+    {
+      group: "Claude 5.5 / 5.1 Generation (Latest)",
+      models: [
+        { value: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5 (Latest Flagship — 1M Context)', badge: 'LATEST' },
+        { value: 'claude-opus-5-5', label: 'Claude Opus 5.5 (Heavy Agentic & Deep Coding)', badge: 'MOST CAPABLE' },
+        { value: 'claude-fable-5-1', label: 'Claude Fable 5.1 (Demanding Reasoning & Long-Horizon)', badge: 'REASONING' },
+        { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (High Speed & Cost Efficient)', badge: 'FAST' },
+      ]
+    },
+    {
+      group: "Claude 3.7 & 3.5 Generation",
+      models: [
+        { value: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet (Hybrid Reasoning & SOTA Coding)', badge: 'HYBRID' },
+        { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet v2 (Agentic Coding Champion)', badge: 'CODING' },
+        { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (Ultra-Fast 200k Context)', badge: 'FAST' },
+        { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus (Deep Analysis & Nuance)', badge: 'SYNTHESIS' },
+      ]
+    }
   ],
   openai: [
-    { value: 'gpt-4o', label: 'GPT-4o (Omni Reasoning)' },
-    { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast & Cheap)' },
-    { value: 'o3-mini', label: 'o3-Mini (Reasoning Benchmark)' },
-    { value: 'o1', label: 'o1 (Deep Reasoning)' },
+    {
+      group: "GPT-6 Generation (Latest Flagships)",
+      models: [
+        { value: 'gpt-6-astra', label: 'GPT-6 Astra (Most Capable Frontier — 1M Context)', badge: 'LATEST' },
+        { value: 'gpt-6-sol', label: 'GPT-6 Sol (High Reasoning & Agentic Logic)', badge: 'BALANCED' },
+        { value: 'gpt-6-luna', label: 'GPT-6 Luna (Ultra-Fast High Throughput)', badge: 'FAST' },
+      ]
+    },
+    {
+      group: "Reasoning Models (o-Series)",
+      models: [
+        { value: 'o3', label: 'o3 (Flagship Deep Reasoning — SOTA STEM & Math)', badge: 'REASONING' },
+        { value: 'o3-pro', label: 'o3-Pro (High Reliability Reasoning Benchmark)', badge: 'PRO' },
+        { value: 'o3-mini', label: 'o3-Mini (High-Speed Technical Reasoning)', badge: 'FAST' },
+        { value: 'o4-mini', label: 'o4-Mini (Advanced Reasoning & Tool Use)', badge: 'TOOL-USE' },
+        { value: 'o1', label: 'o1 (Multimodal Complex Reasoning)', badge: 'REASONING' },
+      ]
+    },
+    {
+      group: "Omni & Frontier SOTA",
+      models: [
+        { value: 'gpt-4.5-preview', label: 'GPT-4.5 Orion (World Knowledge SOTA)', badge: 'FRONTIER' },
+        { value: 'gpt-4o', label: 'GPT-4o (Omni Multimodal Workhorse)', badge: 'MULTIMODAL' },
+        { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast & Cheap)', badge: 'FAST' },
+      ]
+    }
   ],
   gemini: [
-    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Recommended)' },
-    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Most Capable)' },
-    { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite (Ultra Fast)' },
-    { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+    {
+      group: "Gemini 3 Series (Latest Flagships)",
+      models: [
+        { value: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash (Frontier Intelligence & Spatial Reasoning)', badge: 'LATEST' },
+        { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash (Agentic Era & Multi-Step Workflows)', badge: 'RECOMMENDED' },
+        { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (Thinking & Complex Software Engineering)', badge: 'PRO' },
+        { value: 'gemini-3.8-live', label: 'Gemini 3.8 Live (Real-Time Audio & Low Latency)', badge: 'LIVE' },
+        { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite (High Frequency & Ultra Fast)', badge: 'FAST' },
+      ]
+    },
+    {
+      group: "Gemini 2.5 & 2.0 Generation",
+      models: [
+        { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Complex Reasoning & Thinking)', badge: 'REASONING' },
+        { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Balanced Multimodal Speed)', badge: 'FAST' },
+        { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Realtime Multimodal)', badge: 'REALTIME' },
+        { value: 'gemini-2.0-flash-thinking-exp-01-21', label: 'Gemini 2.0 Flash Thinking (Realtime Reasoning)', badge: 'REASONING' },
+      ]
+    },
+    {
+      group: "Long Context",
+      models: [
+        { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (2M Token Massive Context)', badge: '2M CONTEXT' },
+        { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash (High Throughput)', badge: 'FAST' },
+      ]
+    }
   ],
   openrouter: [
-    { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet (via OpenRouter)' },
-    { value: 'deepseek/deepseek-r1', label: 'DeepSeek R1 (Open Reasoning)' },
-    { value: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B (Meta AI)' },
-    { value: 'moonshotai/kimi-k2', label: 'Kimi K2 (Moonshot AI)' },
+    {
+      group: "DeepSeek R1 & V3 (Top Open Weights)",
+      models: [
+        { value: 'deepseek/deepseek-r1', label: 'DeepSeek R1 (Open Reasoning Benchmark SOTA)', badge: 'REASONING' },
+        { value: 'deepseek/deepseek-chat', label: 'DeepSeek V3 671B MoE (Top Open Flagship)', badge: 'FLAGSHIP' },
+        { value: 'deepseek/deepseek-r1:nitro', label: 'DeepSeek R1 Nitro (High Throughput)', badge: 'FAST' },
+      ]
+    },
+    {
+      group: "Frontier Unified Access",
+      models: [
+        { value: 'anthropic/claude-sonnet-5-5', label: 'Claude Sonnet 5.5 (via OpenRouter)', badge: 'LATEST' },
+        { value: 'anthropic/claude-3.7-sonnet', label: 'Claude 3.7 Sonnet (Hybrid Reasoning via OpenRouter)', badge: 'REASONING' },
+        { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet (Coding Champion via OpenRouter)', badge: 'CODING' },
+        { value: 'openai/gpt-6-astra', label: 'GPT-6 Astra (via OpenRouter)', badge: 'LATEST' },
+        { value: 'openai/o3-mini', label: 'o3-Mini (via OpenRouter)', badge: 'REASONING' },
+        { value: 'google/gemini-3.5-flash', label: 'Gemini 3.5 Flash (via OpenRouter)', badge: 'LATEST' },
+      ]
+    },
+    {
+      group: "Meta & Qwen Open Weights",
+      models: [
+        { value: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B Instruct (Meta Open Flagship)', badge: 'META' },
+        { value: 'qwen/qwen-2.5-coder-32b-instruct', label: 'Qwen 2.5 Coder 32B (Top Open Code Specialist)', badge: 'CODING' },
+        { value: 'qwen/qwen-2.5-72b-instruct', label: 'Qwen 2.5 72B Instruct (Multilingual & Math)', badge: 'MATH' },
+        { value: 'mistralai/mistral-large-2411', label: 'Mistral Large 2 (European Enterprise Flagship)', badge: 'MISTRAL' },
+      ]
+    }
   ],
   ollama: [
-    { value: 'gemma4:31b-cloud', label: 'Gemma 4 31B Cloud (Default)' },
-    { value: 'llama3:70b', label: 'Llama 3 70B Local' },
-    { value: 'mistral:latest', label: 'Mistral 7B Local' },
-    { value: 'qwen2.5:latest', label: 'Qwen 2.5 14B Local' },
+    {
+      group: "DeepSeek R1 Reasoning Family (Local)",
+      models: [
+        { value: 'deepseek-r1:8b', label: 'DeepSeek R1 8B (Top Lightweight Reasoning — Recommended)', badge: 'RECOMMENDED' },
+        { value: 'deepseek-r1:14b', label: 'DeepSeek R1 14B (High-Precision Reasoning)', badge: 'REASONING' },
+        { value: 'deepseek-r1:32b', label: 'DeepSeek R1 32B (Frontier Local Reasoning)', badge: 'HEAVY' },
+        { value: 'deepseek-r1:70b', label: 'DeepSeek R1 70B (Full Heavyweight Reasoning)', badge: 'EXTREME' },
+        { value: 'deepseek-r1:1.5b', label: 'DeepSeek R1 1.5B (Ultra-Lightweight / Low VRAM)', badge: 'LIGHT' },
+      ]
+    },
+    {
+      group: "Qwen 2.5 & Coding Specialists (Local)",
+      models: [
+        { value: 'qwen2.5-coder:7b', label: 'Qwen 2.5 Coder 7B (Fast Local Code Specialist)', badge: 'CODING' },
+        { value: 'qwen2.5-coder:14b', label: 'Qwen 2.5 Coder 14B (Deep Coding & Architecture)', badge: 'CODING' },
+        { value: 'qwen2.5-coder:32b', label: 'Qwen 2.5 Coder 32B (Frontier Local Coding)', badge: 'CODING' },
+        { value: 'qwen2.5:14b', label: 'Qwen 2.5 14B (Multilingual & General Knowledge)', badge: 'GENERAL' },
+      ]
+    },
+    {
+      group: "Meta Llama & Microsoft Phi (Local)",
+      models: [
+        { value: 'llama3.3:70b', label: 'Llama 3.3 70B (Meta Flagship Local)', badge: 'FLAGSHIP' },
+        { value: 'llama3.1:8b', label: 'Llama 3.1 8B (Meta Lightweight & Fast)', badge: 'FAST' },
+        { value: 'phi4:latest', label: 'Microsoft Phi-4 14B (SOTA Compact Reasoning)', badge: 'REASONING' },
+      ]
+    },
+    {
+      group: "Mistral & Google Gemma (Local)",
+      models: [
+        { value: 'mistral:latest', label: 'Mistral 7B (Reliable European Open Model)', badge: 'BALANCED' },
+        { value: 'gemma2:9b', label: 'Google Gemma 2 9B (High-Precision Local)', badge: 'PRECISION' },
+        { value: 'gemma2:27b', label: 'Google Gemma 2 27B (Heavyweight Local)', badge: 'HEAVY' },
+      ]
+    }
   ]
 };
+
+const PROVIDER_MODELS: Record<string, { value: string; label: string }[]> = Object.fromEntries(
+  Object.entries(PROVIDER_MODEL_GROUPS).map(([provider, groups]) => [
+    provider,
+    groups.flatMap(g => g.models)
+  ])
+);
 
 // ─── Shared UI Components (Brutalist High-Contrast) ─────────────────────────
 
@@ -183,9 +315,9 @@ const DEFAULT_SETTINGS: NexusSettings = {
   accentColor: "#D0FF14",
   fontSize: "medium",
   typewriterSpeed: 15,
-  selectedModel: "gemma4:31b-cloud",
+  selectedModel: "deepseek-r1:8b",
   vaultPath: "/vault",
-  agentModel: "gemma4:31b-cloud",
+  agentModel: "deepseek-r1:8b",
   agentSystemPrompt: generateSystemPrompt(),
   githubRepoUrl: "",
   githubToken: "",
@@ -209,6 +341,10 @@ function loadSettings(): NexusSettings {
     let s = { ...DEFAULT_SETTINGS };
     if (raw) {
       s = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    }
+    if (s.selectedModel === 'gemma4:31b-cloud') {
+      s.selectedModel = 'deepseek-r1:8b';
+      s.agentModel = 'deepseek-r1:8b';
     }
     if (activeUser) {
       const activeOp = activeUser.user_name || activeUser.email?.split('@')[0] || "OPERATOR";
@@ -254,6 +390,31 @@ export default function SettingsPage() {
   const [indexResult, setIndexResult] = useState<string | null>(null);
 
   const [llmConfirmFlash, setLlmConfirmFlash] = useState(false);
+  const [isPullingModel, setIsPullingModel] = useState(false);
+  const [pullResultMsg, setPullResultMsg] = useState<string | null>(null);
+
+  const handlePullModel = async () => {
+    if (!settings.selectedModel) return;
+    setIsPullingModel(true);
+    setPullResultMsg(`Pulling '${settings.selectedModel}' to Ollama... this may take a moment depending on network.`);
+    try {
+      const res = await api.system.pullModel(settings.selectedModel, settings.ollamaHostUrl);
+      if (res.status === 'success') {
+        setPullResultMsg(`✓ Successfully pulled '${settings.selectedModel}' to local Ollama!`);
+        const data = await api.system.getModels();
+        const rawModels = data.models || [];
+        const parsed: string[] = rawModels.map(m => typeof m === 'string' ? m : (m.name || String(m)));
+        setModels(parsed);
+        setTimeout(() => setPullResultMsg(null), 6000);
+      } else {
+        setPullResultMsg(`✗ Failed to pull: ${res.message || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      setPullResultMsg(`✗ Error: ${err.message || 'Failed to pull model'}`);
+    } finally {
+      setIsPullingModel(false);
+    }
+  };
 
   useEffect(() => {
     setSettings(loadSettings());
@@ -360,6 +521,11 @@ export default function SettingsPage() {
     color: '#0F0F0F', outline: 'none', fontSize: '0.86rem',
     fontFamily: 'var(--font-mono)'
   };
+
+  const isInstalledLocally = models.some(m => {
+    const cleanM = typeof m === 'string' ? m : (m as any)?.name || String(m);
+    return cleanM === settings.selectedModel || cleanM.startsWith(settings.selectedModel.split(':')[0]);
+  });
 
   return (
     <main className="app-container" style={{ background: '#FFFFFF', color: '#0F0F0F' }}>
@@ -504,7 +670,7 @@ export default function SettingsPage() {
                           type="button"
                           onClick={() => {
                             updateSetting('llmProvider', p.id as any);
-                            const defaultModel = PROVIDER_MODELS[p.id]?.[0]?.value || 'gemma4:31b-cloud';
+                            const defaultModel = PROVIDER_MODELS[p.id]?.[0]?.value || 'deepseek-r1:8b';
                             updateSetting('selectedModel', defaultModel);
                           }}
                           style={{
@@ -622,20 +788,38 @@ export default function SettingsPage() {
                 {/* Model Selection Dropdown & Custom Model Override */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '6px' }}>
-                      MODEL_PRESET
-                    </label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <label style={{ fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F' }}>
+                        MODEL_PRESET (MARKET SOTA CATALOG)
+                      </label>
+                      <span style={{ fontSize: '0.72rem', color: '#71717A', fontFamily: 'var(--font-mono)' }}>
+                        {(PROVIDER_MODEL_GROUPS[settings.llmProvider || 'ollama'] || []).reduce((acc, g) => acc + g.models.length, 0)} latest choices
+                      </span>
+                    </div>
+
                     <select
-                      value={settings.selectedModel} onChange={e => updateSetting('selectedModel', e.target.value)}
+                      value={settings.selectedModel}
+                      onChange={e => updateSetting('selectedModel', e.target.value)}
                       style={selectStyle}
                     >
-                      {(PROVIDER_MODELS[settings.llmProvider || 'ollama'] || []).map(m => (
-                        <option key={m.value} value={m.value}>{m.label}</option>
+                      {/* Detected Local Ollama Models (if any) */}
+                      {settings.llmProvider === 'ollama' && models.length > 0 && (
+                        <optgroup label="✓ INSTALLED ON LOCAL MACHINE (DETECTED)">
+                          {models.map(m => {
+                            const modelName = typeof m === 'string' ? m : ((m as any)?.name || String(m));
+                            return <option key={modelName} value={modelName}>{modelName} (Detected Local)</option>;
+                          })}
+                        </optgroup>
+                      )}
+
+                      {/* Market SOTA Models by Categorized Groups */}
+                      {(PROVIDER_MODEL_GROUPS[settings.llmProvider || 'ollama'] || []).map(group => (
+                        <optgroup key={group.group} label={`── ${group.group.toUpperCase()} ──`}>
+                          {group.models.map(m => (
+                            <option key={m.value} value={m.value}>{m.label}</option>
+                          ))}
+                        </optgroup>
                       ))}
-                      {models.map(m => {
-                        const modelName = typeof m === 'string' ? m : ((m as any)?.name || String(m));
-                        return <option key={modelName} value={modelName}>{modelName} (Detected)</option>;
-                      })}
                     </select>
                   </div>
 
@@ -647,10 +831,70 @@ export default function SettingsPage() {
                       type="text"
                       value={settings.selectedModel}
                       onChange={e => updateSetting('selectedModel', e.target.value)}
-                      placeholder="e.g. claude-3-7-sonnet or custom-finetuned-llama3"
+                      placeholder="e.g. claude-3-7-sonnet-20250219 or deepseek-r1:8b"
                       style={inputStyle}
                     />
                   </div>
+
+                  {/* Ollama Local Download & Pull Helper */}
+                  {(!settings.llmProvider || settings.llmProvider === 'ollama') && (
+                    <div style={{ marginTop: '2px' }}>
+                      {isInstalledLocally ? (
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem',
+                          color: '#15803D', fontFamily: 'var(--font-mono)', fontWeight: 700,
+                          padding: '10px 14px', background: '#DCFCE7', border: '1px solid #16A34A'
+                        }}>
+                          <Check size={15} />
+                          <span>Model &apos;{settings.selectedModel}&apos; is downloaded &amp; ready in local Ollama.</span>
+                        </div>
+                      ) : (
+                        <div style={{
+                          display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 14px',
+                          background: '#FEF3C7', border: '1px solid #D97706', color: '#78350F', fontFamily: 'var(--font-mono)'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                            <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>
+                              ⬇ Model &apos;{settings.selectedModel}&apos; is not yet downloaded in local Ollama.
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handlePullModel}
+                              disabled={isPullingModel}
+                              style={{
+                                padding: '6px 14px',
+                                background: '#0F0F0F',
+                                color: '#D0FF14',
+                                border: '2px solid #0F0F0F',
+                                fontSize: '0.74rem',
+                                fontWeight: 800,
+                                cursor: isPullingModel ? 'wait' : 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}
+                            >
+                              <Download size={13} className={isPullingModel ? 'spinning-slow' : ''} />
+                              <span>{isPullingModel ? 'PULLING VIA OLLAMA...' : 'PULL MODEL VIA OLLAMA'}</span>
+                            </button>
+                          </div>
+                          <div style={{ fontSize: '0.74rem', color: '#92400E' }}>
+                            Terminal command: <code style={{ background: '#FDE68A', padding: '2px 6px', fontWeight: 800 }}>ollama pull {settings.selectedModel}</code>
+                          </div>
+                          {pullResultMsg && (
+                            <div style={{
+                              fontSize: '0.76rem', fontWeight: 700, padding: '6px 10px',
+                              background: pullResultMsg.startsWith('✓') ? '#DCFCE7' : '#FEE2E2',
+                              color: pullResultMsg.startsWith('✓') ? '#15803D' : '#991B1B',
+                              border: `1px solid ${pullResultMsg.startsWith('✓') ? '#16A34A' : '#DC2626'}`
+                            }}>
+                              {pullResultMsg}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Live LLM Telemetry Card */}

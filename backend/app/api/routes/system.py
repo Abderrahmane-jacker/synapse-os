@@ -23,6 +23,19 @@ async def get_models():
     models = [m["name"] if isinstance(m, dict) and "name" in m else str(m) for m in raw]
     return {"models": models}
 
+@router.post("/models/pull")
+async def pull_model_endpoint(payload: dict):
+    model = payload.get("model")
+    host = payload.get("host")
+    if not model:
+        return {"status": "error", "message": "Model name is required"}
+    try:
+        res = await llm_client.pull_model(model, host)
+        return {"status": "success", "result": res}
+    except Exception as e:
+        logger.error(f"Failed to pull model '{model}': {e}")
+        return {"status": "error", "message": str(e)}
+
 @router.get("/status")
 async def system_status(x_vault_path: str = Header(None)):
     status_str = await llm_client.get_status()

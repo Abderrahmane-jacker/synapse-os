@@ -142,7 +142,13 @@ class LLMClient:
                         try:
                             data = json.loads(raw)
                             if data.get("type") == "content_block_delta":
-                                yield data.get("delta", {}).get("text", "")
+                                delta = data.get("delta", {})
+                                if delta.get("type") == "text_delta":
+                                    yield delta.get("text", "")
+                                elif delta.get("type") == "thinking_delta":
+                                    yield delta.get("thinking", "")
+                                elif "text" in delta:
+                                    yield delta["text"]
                         except Exception:
                             pass
 
@@ -155,9 +161,17 @@ class LLMClient:
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
+        formatted_messages = []
+        is_reasoning_model = model.startswith("o1") or model.startswith("o3")
+        for m in messages:
+            msg_copy = dict(m)
+            if is_reasoning_model and msg_copy.get("role") == "system":
+                msg_copy["role"] = "developer"
+            formatted_messages.append(msg_copy)
+
         payload = {
             "model": model,
-            "messages": messages,
+            "messages": formatted_messages,
             "stream": True
         }
 
@@ -295,5 +309,13 @@ class LLMClient:
                 return "offline"
         except Exception:
             return "offline"
+
+    async def pull_model(self, model: str, candidate_host: Optional[str] = None) -> dict:
+        working_url = await self._get_working_ollama_url(candidate_host)
+        ollama_url = f"{working_url.rstrip('/')}/api"
+        async with httpx.AsyncClient(timeout=900.0) as client:
+            resp = await client.post(f"{ollama_url}/pull", json={"name": model, "stream": False})
+            resp.raise_for_status()
+            return resp.json()
 
 llm_client = LLMClient()

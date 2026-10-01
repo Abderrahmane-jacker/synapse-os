@@ -203,6 +203,11 @@ export const api = {
     getModels: () => fetchApi<{ models: Array<string | { name: string; provider?: string }> }>('/api/system/models'),
     getStatus: () => fetchApi<SystemStatus>('/api/system/status'),
     getDashboard: () => fetchApi<DashboardData>('/api/system/dashboard'),
+    pullModel: (model: string, host?: string) =>
+      fetchApi<{ status: string; result?: any; message?: string }>('/api/system/models/pull', {
+        method: 'POST',
+        body: JSON.stringify({ model, host }),
+      }),
   },
   commands: {
     getCommands: () => fetchApi<{

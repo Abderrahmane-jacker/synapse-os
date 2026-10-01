@@ -158,7 +158,7 @@ def get_demo_notes() -> list:
 def get_demo_commands() -> list:
     return DEMO_COMMANDS
 
-def get_demo_dashboard(active_model: str = "gemma4:31b-cloud", ollama_online: bool = True) -> dict:
+def get_demo_dashboard(active_model: str = "deepseek-r1:8b", ollama_online: bool = True) -> dict:
     categories = {}
     for n in DEMO_NOTES:
         c = n.get("category", "General")

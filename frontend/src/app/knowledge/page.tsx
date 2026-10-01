@@ -255,7 +255,7 @@ export default function KnowledgePage() {
     if (trimmedMsg === 'claude' || trimmedMsg.startsWith('claude ')) {
       let finalCommand = trimmedMsg;
       if (trimmedMsg === 'claude') {
-        finalCommand = 'claude --model gemma4:31b-cloud --agent synapse';
+        finalCommand = 'claude --model deepseek-r1:8b --agent synapse';
       }
       router.push(`/agent?command=${encodeURIComponent(finalCommand)}`);
       return;
@@ -402,7 +402,7 @@ export default function KnowledgePage() {
   const { isStreaming: isVisionMode, toggleStream: toggleVisionMode, captureFrame } = useVisionStream();
 
   const handleAgentRun = () => {
-    router.push(`/?msg=${encodeURIComponent('claude --model gemma4:31b-cloud --agent synapse')}`);
+    router.push(`/?msg=${encodeURIComponent('claude --model deepseek-r1:8b --agent synapse')}`);
   };
 
   const displayNotes = searchQuery ? searchResults : notes;

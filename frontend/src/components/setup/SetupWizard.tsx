@@ -10,7 +10,7 @@ interface SetupWizardProps {
 export default function SetupWizard({ onComplete }: SetupWizardProps) {
   const [assistantName, setAssistantName] = useState("Synapse");
   const [userName, setUserName] = useState("Operator");
-  const [model, setModel] = useState("gemma4:31b-cloud");
+  const [model, setModel] = useState("deepseek-r1:8b");
   const [backendUrl, setBackendUrl] = useState("http://localhost:8000");
   const [vaultPath, setVaultPath] = useState("");
   const [systemPrompt, setSystemPrompt] = useState(

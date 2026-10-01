@@ -94,7 +94,7 @@ export default function Home() {
     if (trimmedMsg === 'claude' || trimmedMsg.startsWith('claude ')) {
       let finalCommand = trimmedMsg;
       if (trimmedMsg === 'claude') {
-        finalCommand = 'claude --model gemma4:31b-cloud --agent synapse';
+        finalCommand = 'claude --model deepseek-r1:8b --agent synapse';
       }
       router.push(`/agent?command=${encodeURIComponent(finalCommand)}`);
       return;
@@ -186,7 +186,7 @@ export default function Home() {
 
               <div className="brutalist-tag brutalist-tag-white" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
                 <Cpu size={12} />
-                <span>{status?.model || 'gemma4:31b-cloud'}</span>
+                <span>{status?.model || 'deepseek-r1:8b'}</span>
               </div>
             </div>
 

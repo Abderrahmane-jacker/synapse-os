@@ -33,7 +33,7 @@ services:
       POSTGRES_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-nexus_saas}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OBSIDIAN_VAULT_PATH: /vault
-      DEFAULT_LLM_MODEL: ${DEFAULT_LLM_MODEL:-gemma4:31b-cloud}
+      DEFAULT_LLM_MODEL: ${DEFAULT_LLM_MODEL:-deepseek-r1:8b}
       DATABASE_BACKEND: ${DATABASE_BACKEND:-postgres}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}

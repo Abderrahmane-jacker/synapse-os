@@ -37,9 +37,9 @@ If running Ollama locally on your host machine:
   ```
 - Pull your preferred model:
   ```bash
-  ollama pull gemma4:31b-cloud
+  ollama pull deepseek-r1:8b
   # or
-  ollama pull llama3:70b
+  ollama pull qwen2.5-coder:7b
   ```
 
 ### 4. Launch SynapseOS
@@ -104,7 +104,7 @@ If you are using the public web deployment of SynapseOS:
 |---|---|---|
 | `LOCAL_VAULT_PATH` | `./vault` | Host path to your markdown notes directory |
 | `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Endpoint for Ollama LLM queries |
-| `DEFAULT_LLM_MODEL` | `gemma4:31b-cloud` | Default model tag to execute |
+| `DEFAULT_LLM_MODEL` | `deepseek-r1:8b` | Default model tag to execute |
 | `DATABASE_BACKEND` | `postgres` (or `sqlite`) | Database engine used for RAG & users |
 | `POSTGRES_USER` | `postgres` | Database username |
 | `POSTGRES_PASSWORD` | `postgres` | Database password |

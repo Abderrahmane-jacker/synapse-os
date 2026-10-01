@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     DATABASE_BACKEND: str = "auto" # 'postgres', 'sqlite', or 'auto'
     DEFAULT_TENANT_ID: str = "00000000-0000-0000-0000-000000000001"
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
-    DEFAULT_LLM_MODEL: str = "gemma4:31b-cloud"
+    DEFAULT_LLM_MODEL: str = "deepseek-r1:8b"
     SECRET_KEY: str = "synapseos_neural_super_secret_jwt_key_zero_cost_saas"
 
     class Config:
