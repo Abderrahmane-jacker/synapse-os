@@ -77,7 +77,7 @@ export default function DashboardPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [assistantName, setAssistantName] = useState("Synapse");
   const [userName, setUserName] = useState("OPERATOR");
-  const [selectedModel, setSelectedModel] = useState("deepseek-r1:8b");
+  const [selectedModel, setSelectedModel] = useState("");
   const [llmProvider, setLlmProvider] = useState("ollama");
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isVaultInitOpen, setIsVaultInitOpen] = useState(false);
@@ -485,7 +485,7 @@ export default function DashboardPage() {
                   textOverflow: 'ellipsis', 
                   whiteSpace: 'nowrap' 
                 }}>
-                  {selectedModel || stats?.active_model || 'deepseek-r1:8b'}
+                  {selectedModel || stats?.active_model || 'NOT CONFIGURED'}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
                   <span style={{ 

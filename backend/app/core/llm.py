@@ -19,8 +19,12 @@ class LLMClient:
         ollama_host: str = None,
         stream: bool = True
     ) -> AsyncGenerator[str, None]:
-        model = model or settings.DEFAULT_LLM_MODEL
+        model = (model or settings.DEFAULT_LLM_MODEL or "").strip()
         provider = (provider or "ollama").lower()
+
+        if not model:
+            yield "⚠️ **Model Not Configured**: Please enter a model identifier in Settings (e.g. `deepseek-r1:8b`, `claude-3-7-sonnet`, `gpt-4o`) before sending messages."
+            return
 
         try:
             if provider == "gemini":

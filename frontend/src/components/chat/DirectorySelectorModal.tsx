@@ -21,7 +21,7 @@ export default function DirectorySelectorModal({ onClose, onLaunch }: DirectoryS
   const settings = getSavedSettings();
   
   const [cwd, setCwd] = useState<string>(() => settings.vaultPath || '');
-  const [model, setModel] = useState<string>(() => settings.selectedModel || 'deepseek-r1:8b');
+  const [model, setModel] = useState<string>(() => settings.selectedModel || '');
   const [agent, setAgent] = useState<string>('synapse');
 
   const buildCommand = () => {
@@ -145,7 +145,7 @@ export default function DirectorySelectorModal({ onClose, onLaunch }: DirectoryS
               type="text"
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              placeholder="e.g. deepseek-r1:8b or claude-3-7-sonnet"
+              placeholder=""
               style={{
                 width: '100%',
                 padding: '10px 12px',

@@ -10,7 +10,7 @@ interface SetupWizardProps {
 export default function SetupWizard({ onComplete }: SetupWizardProps) {
   const [assistantName, setAssistantName] = useState("Synapse");
   const [userName, setUserName] = useState("Operator");
-  const [model, setModel] = useState("deepseek-r1:8b");
+  const [model, setModel] = useState("");
   const [backendUrl, setBackendUrl] = useState("http://localhost:8000");
   const [vaultPath, setVaultPath] = useState("");
   const [systemPrompt, setSystemPrompt] = useState(
@@ -99,6 +99,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
               type="text"
               value={model}
               onChange={(e) => setModel(e.target.value)}
+              placeholder=""
               style={{
                 width: "100%", padding: "10px 12px", borderRadius: "0px",
                 background: "#FFFFFF", border: "2px solid #0F0F0F",
