@@ -208,6 +208,11 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ model, host }),
       }),
+    setActiveModel: (model: string, provider: string = 'ollama') =>
+      fetchApi<{ status: string; active_model: string; provider?: string }>('/api/system/model/active', {
+        method: 'POST',
+        body: JSON.stringify({ model, provider }),
+      }),
   },
   commands: {
     getCommands: () => fetchApi<{

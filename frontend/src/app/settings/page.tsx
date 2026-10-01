@@ -199,6 +199,8 @@ function loadSettings(): NexusSettings {
 function saveSettings(s: NexusSettings) {
   if (typeof window === 'undefined') return;
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  window.dispatchEvent(new CustomEvent("nexus_settings_changed", { detail: s }));
+  window.dispatchEvent(new Event("storage"));
 }
 
 const VOICE_OPTIONS = [
@@ -263,21 +265,38 @@ export default function SettingsPage() {
   }, []);
 
   const updateSetting = useCallback(<K extends keyof NexusSettings>(key: K, value: NexusSettings[K]) => {
-    setSettings(prev => {
-      const next = { ...prev, [key]: value };
-      saveSettings(next);
-      return next;
-    });
+    setSettings(prev => ({ ...prev, [key]: value }));
   }, []);
 
-  const handleSave = () => {
+  const commitSettings = async (targetSettings: NexusSettings) => {
+    saveSettings(targetSettings);
+    try {
+      if (targetSettings.selectedModel) {
+        await api.system.setActiveModel(targetSettings.selectedModel, targetSettings.llmProvider || 'ollama');
+      }
+    } catch (e) {
+      console.error("Failed to sync active model with backend:", e);
+    }
+    setStatus(prev => prev ? {
+      ...prev,
+      model: targetSettings.selectedModel || prev.model
+    } : null);
+  };
+
+  const handleSave = async () => {
     setIsSaving(true);
-    saveSettings(settings);
+    await commitSettings(settings);
     setTimeout(() => {
       setIsSaving(false);
       setSaveFlash(true);
       setTimeout(() => setSaveFlash(false), 2000);
     }, 400);
+  };
+
+  const handleApplyLlm = async () => {
+    await commitSettings(settings);
+    setLlmConfirmFlash(true);
+    setTimeout(() => setLlmConfirmFlash(false), 2500);
   };
 
   const handleReindex = async () => {
@@ -726,11 +745,7 @@ export default function SettingsPage() {
                 <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <button
                     type="button"
-                    onClick={() => {
-                      saveSettings(settings);
-                      setLlmConfirmFlash(true);
-                      setTimeout(() => setLlmConfirmFlash(false), 2500);
-                    }}
+                    onClick={handleApplyLlm}
                     className="brutalist-btn-primary"
                     style={{
                       width: '100%', padding: '14px', fontSize: '0.84rem'

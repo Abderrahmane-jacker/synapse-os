@@ -44,6 +44,8 @@ export default function Home() {
 
   const [assistantName, setAssistantName] = useState("Synapse");
   const [userName, setUserName] = useState("OPERATOR");
+  const [activeModel, setActiveModel] = useState<string>("");
+  const [activeProvider, setActiveProvider] = useState<string>("ollama");
 
   // Check auth & environment setup state
   useEffect(() => {
@@ -67,12 +69,16 @@ export default function Home() {
           }
           if (parsed.userName) setUserName(parsed.userName);
           if (parsed.assistantName) setAssistantName(parsed.assistantName);
+          if (parsed.selectedModel !== undefined) setActiveModel(parsed.selectedModel);
+          if (parsed.llmProvider !== undefined) setActiveProvider(parsed.llmProvider);
         } catch (e) {}
       }
+      api.system.getStatus().then(setStatus).catch(console.error);
     };
 
     refreshUserState();
     window.addEventListener("nexus_user_changed", refreshUserState);
+    window.addEventListener("nexus_settings_changed", refreshUserState);
     window.addEventListener("storage", refreshUserState);
 
     const updateClock = () => {
@@ -84,6 +90,7 @@ export default function Home() {
     return () => {
       clearInterval(interval);
       window.removeEventListener("nexus_user_changed", refreshUserState);
+      window.removeEventListener("nexus_settings_changed", refreshUserState);
       window.removeEventListener("storage", refreshUserState);
     };
   }, []);
@@ -173,7 +180,7 @@ export default function Home() {
                 <span style={{
                   width: '8px',
                   height: '8px',
-                  background: status?.ollama_online ? '#D0FF14' : '#DC2626',
+                  background: (!activeProvider || activeProvider === 'ollama') ? (status?.ollama_online ? '#D0FF14' : '#DC2626') : '#D0FF14',
                   border: '1px solid #0F0F0F',
                   display: 'inline-block'
                 }} />
@@ -184,10 +191,16 @@ export default function Home() {
 
               <span style={{ color: '#0F0F0F' }}>//</span>
 
-              <div className="brutalist-tag brutalist-tag-white" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
+              <div className="brutalist-tag brutalist-tag-white" style={{ fontSize: '0.7rem', padding: '2px 8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Cpu size={12} />
-                <span>{status?.model || 'deepseek-r1:8b'}</span>
+                <span style={{ fontWeight: 700 }}>{activeModel || status?.model || 'NO MODEL'}</span>
               </div>
+
+              {activeProvider && activeProvider !== 'ollama' && (
+                <span className="brutalist-tag brutalist-tag-black" style={{ fontSize: '0.64rem', padding: '1px 6px' }}>
+                  {activeProvider.toUpperCase()}
+                </span>
+              )}
             </div>
 
             {/* Center: Connected Obsidian Vault Pill */}

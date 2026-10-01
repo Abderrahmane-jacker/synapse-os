@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Header
+from pydantic import BaseModel
+from typing import Optional
 import httpx
 from app.core.llm import llm_client
 from app.services.obsidian import obsidian_parser
@@ -35,6 +37,15 @@ async def pull_model_endpoint(payload: dict):
     except Exception as e:
         logger.error(f"Failed to pull model '{model}': {e}")
         return {"status": "error", "message": str(e)}
+
+class ActiveModelRequest(BaseModel):
+    model: str
+    provider: Optional[str] = "ollama"
+
+@router.post("/model/active")
+async def set_active_model(req: ActiveModelRequest):
+    settings.DEFAULT_LLM_MODEL = req.model.strip()
+    return {"status": "success", "active_model": settings.DEFAULT_LLM_MODEL, "provider": req.provider}
 
 @router.get("/status")
 async def system_status(x_vault_path: str = Header(None)):
