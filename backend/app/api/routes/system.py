@@ -193,6 +193,54 @@ async def setup_system(req: SystemSetupRequest):
         except Exception as e:
             logger.warning(f"Error scanning vault during setup: {e}")
 
+    # Persist updated configuration to .env files on disk so settings survive server re-runs
+    try:
+        env_updates = {
+            "OBSIDIAN_VAULT_PATH": settings.OBSIDIAN_VAULT_PATH,
+            "DEFAULT_LLM_MODEL": settings.DEFAULT_LLM_MODEL,
+            "LLM_PROVIDER": getattr(settings, "LLM_PROVIDER", "omniroute"),
+            "OPERATOR_NAME": getattr(settings, "OPERATOR_NAME", "Operator"),
+            "AGENT_NAME": getattr(settings, "AGENT_NAME", "Synapse"),
+        }
+        if getattr(settings, "OMNIROUTE_BASE_URL", None):
+            env_updates["OMNIROUTE_BASE_URL"] = settings.OMNIROUTE_BASE_URL
+
+        candidate_paths = [
+            os.path.abspath(os.path.join(os.getcwd(), ".env")),
+            os.path.abspath(os.path.join(os.getcwd(), "..", ".env")),
+            os.path.abspath(os.path.join(os.getcwd(), "backend", ".env")),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".env")),
+        ]
+        written = set()
+        for env_file in candidate_paths:
+            if env_file in written:
+                continue
+            written.add(env_file)
+            existing_lines = []
+            if os.path.exists(env_file):
+                try:
+                    with open(env_file, "r") as f:
+                        existing_lines = f.readlines()
+                except Exception:
+                    pass
+            
+            env_map = {}
+            for line in existing_lines:
+                line_str = line.strip()
+                if line_str and not line_str.startswith("#") and "=" in line_str:
+                    k, v = line_str.split("=", 1)
+                    env_map[k.strip()] = v.strip()
+
+            env_map.update(env_updates)
+            try:
+                with open(env_file, "w") as f:
+                    for k, v in env_map.items():
+                        f.write(f"{k}={v}\n")
+            except Exception:
+                pass
+    except Exception as env_err:
+        logger.warning(f"Failed to persist .env changes: {env_err}")
+
     return {
         "status": "success",
         "vault_path": settings.OBSIDIAN_VAULT_PATH,

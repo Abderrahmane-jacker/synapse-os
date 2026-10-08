@@ -28,11 +28,9 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
   if (typeof window !== 'undefined') {
     try {
       authToken = localStorage.getItem('nexus_auth_token') || '';
-      if (authToken) {
-        const settingsStr = localStorage.getItem('nexus_settings');
-        if (settingsStr) {
-          vaultPath = JSON.parse(settingsStr).vaultPath || '';
-        }
+      const settingsStr = localStorage.getItem('nexus_settings');
+      if (settingsStr) {
+        vaultPath = JSON.parse(settingsStr).vaultPath || '';
       }
     } catch (e) {}
   }
