@@ -39,15 +39,27 @@ export default function NexusBottomDock({
   const [input, setInput] = useState("");
   const [activeBtn, setActiveBtn] = useState<string | null>(null);
 
-  const [assistantName, setAssistantName] = useState(() => {
-    if (typeof window !== 'undefined') {
+  const [assistantName, setAssistantName] = useState('Synapse');
+
+  useEffect(() => {
+    const updateName = () => {
       try {
         const raw = localStorage.getItem('nexus_settings');
-        if (raw) return JSON.parse(raw).assistantName || 'Synapse';
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.assistantName) setAssistantName(parsed.assistantName);
+        }
       } catch (e) {}
-    }
-    return 'Synapse';
-  });
+    };
+
+    updateName();
+    window.addEventListener('nexus_settings_changed', updateName);
+    window.addEventListener('storage', updateName);
+    return () => {
+      window.removeEventListener('nexus_settings_changed', updateName);
+      window.removeEventListener('storage', updateName);
+    };
+  }, []);
   const silenceTimerRef = useRef<any>(null);
 
   const handleSend = useCallback((textToSend?: string) => {
@@ -224,6 +236,7 @@ export default function NexusBottomDock({
         </span>
 
         <input
+          suppressHydrationWarning
           type="text"
           value={input}
           onChange={e => setInput(e.target.value)}

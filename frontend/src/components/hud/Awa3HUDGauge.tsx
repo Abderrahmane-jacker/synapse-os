@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface Awa3HUDGaugeProps {
   status?: string;
@@ -12,16 +12,27 @@ export default function Awa3HUDGauge({
   onToggleVoice
 }: Awa3HUDGaugeProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [assistantName, setAssistantName] = useState('Synapse');
 
-  const [assistantName, setAssistantName] = useState(() => {
-    if (typeof window !== 'undefined') {
+  useEffect(() => {
+    const updateName = () => {
       try {
         const raw = localStorage.getItem('nexus_settings');
-        if (raw) return JSON.parse(raw).assistantName || 'Synapse';
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.assistantName) setAssistantName(parsed.assistantName);
+        }
       } catch (e) {}
-    }
-    return 'Synapse';
-  });
+    };
+
+    updateName();
+    window.addEventListener('nexus_settings_changed', updateName);
+    window.addEventListener('storage', updateName);
+    return () => {
+      window.removeEventListener('nexus_settings_changed', updateName);
+      window.removeEventListener('storage', updateName);
+    };
+  }, []);
 
   const isListen = status.includes("LISTEN");
   const isThinking = status.includes("THINKING");
@@ -119,14 +130,17 @@ export default function Awa3HUDGauge({
             SYSTEM // GAUGED
           </div>
 
-          <h2 style={{
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontSize: '1rem',
-            fontWeight: 900,
-            letterSpacing: '-0.02em',
-            color: '#0F0F0F',
-            marginTop: '2px'
-          }}>
+          <h2
+            suppressHydrationWarning
+            style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontSize: '1rem',
+              fontWeight: 900,
+              letterSpacing: '-0.02em',
+              color: '#0F0F0F',
+              marginTop: '2px'
+            }}
+          >
             {assistantName.toUpperCase()}
           </h2>
 

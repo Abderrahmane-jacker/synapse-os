@@ -64,12 +64,14 @@ export default function KnowledgePage() {
     }
   }, []);
   const [hudMessages, setHudMessages] = useState<{ id: string; role: 'user' | 'assistant'; content: string }[]>([]);
-  const [activeHudConvId, setActiveHudConvId] = useState<string | null>(() => {
+  const [activeHudConvId, setActiveHudConvId] = useState<string | null>(null);
+
+  useEffect(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem("nexus_active_conv_id") || null;
+      const saved = localStorage.getItem("nexus_active_conv_id");
+      if (saved) setActiveHudConvId(saved);
     }
-    return null;
-  });
+  }, []);
   const [latestAnswer, setLatestAnswer] = useState<string>("");
   const [isHudPinned, setIsHudPinned] = useState<boolean>(true);
   const [isHudMinimized, setIsHudMinimized] = useState<boolean>(false);

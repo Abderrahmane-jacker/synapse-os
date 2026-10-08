@@ -38,10 +38,13 @@ export function useSpeechRecognition({
   useEffect(() => { onWakeWordRef.current = onWakeWord; }, [onWakeWord]);
 
   // Prefer native continuous browser speech recognition when available; fallback to backend Whisper VAD
-  const [hasNativeSpeech] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
-  });
+  const [hasNativeSpeech, setHasNativeSpeech] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setHasNativeSpeech(Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition));
+    }
+  }, []);
 
   const processText = useCallback((rawText: string, isFinal: boolean = true) => {
     const trimmed = rawText.trim();
