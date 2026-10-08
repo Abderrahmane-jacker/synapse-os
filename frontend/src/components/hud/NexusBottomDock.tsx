@@ -94,7 +94,7 @@ export default function NexusBottomDock({
           onSendMessage(trimmed);
           setInput("");
         }
-      }, 1200);
+      }, 2500);
     }
   }, [onSendMessage, isLoading, isSpeaking, isVoiceActive]);
 

@@ -37,8 +37,11 @@ export function useSpeechRecognition({
   useEffect(() => { onTranscriptRef.current = onTranscript; }, [onTranscript]);
   useEffect(() => { onWakeWordRef.current = onWakeWord; }, [onWakeWord]);
 
-  // Force bypass native speech to route ALL audio to backend Whisper AI
-  const hasNativeSpeech = false;
+  // Prefer native continuous browser speech recognition when available; fallback to backend Whisper VAD
+  const [hasNativeSpeech] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+  });
 
   const processText = useCallback((rawText: string, isFinal: boolean = true) => {
     const trimmed = rawText.trim();
@@ -162,8 +165,8 @@ export function useSpeechRecognition({
           // Silence detected after speech
           if (silenceStart === null) {
             silenceStart = Date.now();
-          } else if (Date.now() - silenceStart > 1200) {
-            // 1.2s of silence reached -> stop recording & transcribe!
+          } else if (Date.now() - silenceStart > 2500) {
+            // 2.5s of natural silence reached -> stop recording & transcribe!
             clearInterval(vadInterval);
             if (recorder.state === 'recording') {
               try { recorder.stop(); } catch (e) {}

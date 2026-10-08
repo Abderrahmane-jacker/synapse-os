@@ -131,17 +131,6 @@ class TTSEngine {
       return;
     }
 
-    // If text is very long, limit spoken speech to first 3 sentences or 80 words for instant responsive briefing
-    const sentences = cleanText.match(/[^.!?]+[.!?]+/g);
-    if (sentences && sentences.length > 3) {
-      cleanText = sentences.slice(0, 3).join(' ').trim();
-    } else {
-      const words = cleanText.split(' ');
-      if (words.length > 80) {
-        cleanText = words.slice(0, 80).join(' ') + '...';
-      }
-    }
-
     const voice = settings.ttsVoice || "en-US-AndrewNeural";
     const speed = settings.ttsSpeed ?? 1.0;
     const ratePct = Math.round((speed - 1.0) * 100);
