@@ -61,7 +61,6 @@ export default function CommandsPage() {
   const [selectedCommand, setSelectedCommand] = useState<CommandItem | null>(null);
   const [paramValues, setParamValues] = useState<Record<string, string>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
 
   // Add Command Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -623,6 +622,7 @@ export default function CommandsPage() {
         </div>
 
       </div>
+
 
       {isAddModalOpen && typeof window !== 'undefined' && createPortal(
         <div style={{

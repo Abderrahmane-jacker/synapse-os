@@ -10,29 +10,41 @@ SYSTEM_BLACKLIST = [
 
 def validate_vault_path(path_str: str = None) -> str:
     """
-    Validates and sanitizes the vault path provided via headers.
-    If no valid directory path is explicitly specified, returns empty string to trigger Demo Mode.
-    Prevents path traversal and access to system-critical directories.
+    Validates and sanitizes the vault path provided via headers or settings.
+    If no valid directory path is explicitly specified, falls back to settings or ./vault.
+    Prevents path traversal into system-critical directories.
     """
-    if not path_str or not isinstance(path_str, str):
-        return ""
+    raw = (path_str or "").strip()
+    if not raw or raw.lower() in ("demo", "null", "undefined", "none"):
+        raw = settings.OBSIDIAN_VAULT_PATH or "./vault"
 
-    target = path_str.strip()
-    if not target or target.lower() in ("demo", "null", "undefined", "none"):
-        return ""
+    # Expand user home tilde
+    target = os.path.expanduser(raw.strip())
 
-    # If target doesn't exist on this filesystem, do not expose host directory
-    if not os.path.exists(target) or not os.path.isdir(target):
-        if target.lower() == "/vault" and os.path.exists("/vault"):
-            target = "/vault"
+    # Resolve relative paths (e.g. ./vault or vault)
+    if not os.path.isabs(target):
+        if os.path.exists(target) and os.path.isdir(target):
+            target = os.path.abspath(target)
         else:
-            return ""
+            # Check relative to parent directory (e.g. when CWD is backend/)
+            parent_rel = os.path.abspath(os.path.join(os.getcwd(), "..", target))
+            if os.path.exists(parent_rel) and os.path.isdir(parent_rel):
+                target = parent_rel
+            elif target.endswith("vault"):
+                # Automatically initialize vault directory if requested
+                try:
+                    os.makedirs(target, exist_ok=True)
+                    target = os.path.abspath(target)
+                except Exception:
+                    pass
 
-    # Reject relative traversal attacks
-    if ".." in target:
-        raise HTTPException(status_code=403, detail="Path traversal (..) is strictly forbidden")
+    # Docker / containerized fallback
+    if (not os.path.exists(target) or not os.path.isdir(target)) and os.path.exists("/vault"):
+        target = "/vault"
 
-    # Resolve to absolute path
+    if not os.path.exists(target) or not os.path.isdir(target):
+        return ""
+
     abs_path = os.path.abspath(target)
 
     # Check against blacklist

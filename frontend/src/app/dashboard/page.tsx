@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import VaultInitModal from "@/components/auth/VaultInitModal";
+import GuestBanner from "@/components/ui/GuestBanner";
 
 function getCategoryMeta(categoryName: string) {
   const lower = categoryName.toLowerCase();
@@ -78,8 +79,7 @@ export default function DashboardPage() {
   const [assistantName, setAssistantName] = useState("Synapse");
   const [userName, setUserName] = useState("OPERATOR");
   const [selectedModel, setSelectedModel] = useState("");
-  const [llmProvider, setLlmProvider] = useState("ollama");
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [llmProvider, setLlmProvider] = useState("omniroute");
   const [isVaultInitOpen, setIsVaultInitOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -189,6 +189,7 @@ export default function DashboardPage() {
       overflow: 'hidden',
       position: 'relative'
     }}>
+      <GuestBanner />
 
       <div style={{
         flex: 1,
@@ -311,7 +312,7 @@ export default function DashboardPage() {
               >
                 <Folder size={14} color="#0F0F0F" />
                 <span style={{ fontWeight: 700 }}>
-                  {stats?.vault_path || '/vault'}
+                  {stats?.vault_path || './vault'}
                 </span>
                 <span style={{ 
                   fontSize: '0.64rem', 
@@ -996,6 +997,7 @@ export default function DashboardPage() {
 
         </div>
       </div>
+
 
       <VaultInitModal
         isOpen={isVaultInitOpen}

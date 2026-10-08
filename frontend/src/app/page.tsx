@@ -7,6 +7,7 @@ import Sidebar from "@/components/sidebar/Sidebar";
 import ChatWindow from "@/components/chat/ChatWindow";
 import InputBar from "@/components/chat/InputBar";
 import AnimatedBackground from "@/components/ui/AnimatedBackground";
+import SetupWizard from "@/components/setup/SetupWizard";
 import VaultInitModal from "@/components/auth/VaultInitModal";
 import { useChat } from "@/hooks/useChat";
 import { api } from "@/lib/api";
@@ -16,7 +17,6 @@ import {
   Layers, Settings, Globe, KeyRound, Sparkles, LayoutDashboard, 
   Folder, Network, CheckCircle2, ChevronRight, Clock
 } from "lucide-react";
-import GuestBanner from "@/components/ui/GuestBanner";
 
 export default function Home() {
   const router = useRouter();
@@ -36,50 +36,59 @@ export default function Home() {
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [timeStr, setTimeStr] = useState<string>("");
 
-  const [showLanding, setShowLanding] = useState<boolean>(false);
-  const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
+  const [isSetupOpen, setIsSetupOpen] = useState<boolean>(false);
   const [isVaultInitOpen, setIsVaultInitOpen] = useState<boolean>(false);
   const [activeVaultName, setActiveVaultName] = useState<string>("Local Vault");
 
   const [assistantName, setAssistantName] = useState("Synapse");
   const [userName, setUserName] = useState("OPERATOR");
   const [activeModel, setActiveModel] = useState<string>("");
-  const [activeProvider, setActiveProvider] = useState<string>("ollama");
+  const [activeProvider, setActiveProvider] = useState<string>("omniroute");
 
-  // Check auth & environment setup state
+  // Check setup state on load
   useEffect(() => {
     api.system.getStatus().then(setStatus).catch(console.error);
 
-    const refreshUserState = () => {
+    const refreshState = () => {
       if (typeof window === 'undefined') return;
+      const setupDone = localStorage.getItem('nexus_setup_completed');
       const settingsRaw = localStorage.getItem('nexus_settings');
-      const vaultInit = localStorage.getItem('nexus_vault_initialized');
-      
-      if (!vaultInit) {
-        setIsVaultInitOpen(true);
+      const userRaw = localStorage.getItem('nexus_user');
+
+      // Prompt first-time users to initialize settings if empty
+      if (!setupDone) {
+        setIsSetupOpen(true);
       }
 
       if (settingsRaw) {
         try {
           const parsed = JSON.parse(settingsRaw);
+          if (parsed.selectedModel !== undefined) setActiveModel(parsed.selectedModel);
+          if (parsed.llmProvider !== undefined) setActiveProvider(parsed.llmProvider);
+          if (parsed.assistantName) setAssistantName(parsed.assistantName);
+          if (parsed.userName) setUserName(parsed.userName);
           if (parsed.vaultPath) {
             const parts = parsed.vaultPath.split('/').filter(Boolean);
             setActiveVaultName(parts[parts.length - 1] || parsed.vaultPath);
           }
-          if (parsed.userName) setUserName(parsed.userName);
-          if (parsed.assistantName) setAssistantName(parsed.assistantName);
-          if (parsed.selectedModel !== undefined) setActiveModel(parsed.selectedModel);
-          if (parsed.llmProvider !== undefined) setActiveProvider(parsed.llmProvider);
         } catch (e) {}
       }
+
+      if (userRaw) {
+        try {
+          const usr = JSON.parse(userRaw);
+          if (usr.user_name) setUserName(usr.user_name);
+          if (usr.assistant_name) setAssistantName(usr.assistant_name);
+        } catch (e) {}
+      }
+
       api.system.getStatus().then(setStatus).catch(console.error);
     };
 
-    refreshUserState();
-    window.addEventListener("nexus_user_changed", refreshUserState);
-    window.addEventListener("nexus_settings_changed", refreshUserState);
-    window.addEventListener("storage", refreshUserState);
+    refreshState();
+    window.addEventListener("nexus_user_changed", refreshState);
+    window.addEventListener("nexus_settings_changed", refreshState);
+    window.addEventListener("storage", refreshState);
 
     const updateClock = () => {
       const d = new Date();
@@ -89,9 +98,9 @@ export default function Home() {
     const interval = setInterval(updateClock, 1000);
     return () => {
       clearInterval(interval);
-      window.removeEventListener("nexus_user_changed", refreshUserState);
-      window.removeEventListener("nexus_settings_changed", refreshUserState);
-      window.removeEventListener("storage", refreshUserState);
+      window.removeEventListener("nexus_user_changed", refreshState);
+      window.removeEventListener("nexus_settings_changed", refreshState);
+      window.removeEventListener("storage", refreshState);
     };
   }, []);
 
@@ -101,7 +110,7 @@ export default function Home() {
     if (trimmedMsg === 'claude' || trimmedMsg.startsWith('claude ')) {
       let finalCommand = trimmedMsg;
       if (trimmedMsg === 'claude') {
-        finalCommand = 'claude --model deepseek-r1:8b --agent synapse';
+        finalCommand = 'claude --model gemma4:31b-cloud --agent synapse';
       }
       router.push(`/agent?command=${encodeURIComponent(finalCommand)}`);
       return;
@@ -109,79 +118,57 @@ export default function Home() {
     sendMessage(msg, image);
   }, [sendMessage, router]);
 
-  const handleAuthSuccess = (user: any) => {
-    setUserName(user.user_name || user.email || "OPERATOR");
-    setAssistantName(user.assistant_name || "Synapse");
-  };
-
   return (
     <main style={{
-      width: '100vw',
-      height: '100vh',
       display: 'flex',
-      flexDirection: 'column',
-      background: 'var(--bg-primary)',
-      color: 'var(--text-primary)',
+      height: '100vh',
+      width: '100vw',
       overflow: 'hidden',
+      background: '#F4F4F5',
       position: 'relative'
     }}>
+      <AnimatedBackground />
 
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'row',
-        width: '100%',
-        height: '100%',
-        overflow: 'hidden',
-        position: 'relative'
-      }}>
-        <AnimatedBackground />
-      
-        <Sidebar 
-          conversations={conversations} 
-          activeId={activeConversationId} 
-          onSelect={switchConversation} 
+      <div style={{ display: 'flex', width: '100%', height: '100%', position: 'relative', zIndex: 1 }}>
+        <Sidebar
+          conversations={conversations}
+          activeId={activeConversationId}
+          onSelect={switchConversation}
           onNewChat={createNewChat}
           onDelete={deleteConversation}
           onRename={renameConversation}
           onTogglePin={togglePinConversation}
           status={status}
         />
-        
-        {/* Main Fluid Chat Canvas */}
+
+        {/* Central Workspace Container */}
         <div style={{
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
-          position: 'relative',
-          zIndex: 10,
           height: '100%',
-          overflow: 'hidden',
-          background: 'var(--bg-primary)'
+          overflow: 'hidden'
         }}>
-          
-          {/* Refined Top Navigation Bar */}
+          {/* Universal Brutalist Top Bar */}
           <header style={{
-            height: '54px',
-            background: '#FFFFFF',
+            height: '56px',
             borderBottom: '2px solid #0F0F0F',
+            background: '#FFFFFF',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '0 24px',
-            fontSize: '0.8rem',
-            fontFamily: 'var(--font-mono)',
-            zIndex: 20,
-            userSelect: 'none'
+            flexShrink: 0,
+            fontFamily: 'var(--font-mono)'
           }}>
-            {/* Left: Assistant & Engine Status */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Left: Active Intelligence Node */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
                 <span style={{
                   width: '8px',
                   height: '8px',
-                  background: (!activeProvider || activeProvider === 'ollama') ? (status?.ollama_online ? '#D0FF14' : '#DC2626') : '#D0FF14',
-                  border: '1px solid #0F0F0F',
+                  background: status?.ollama_online || activeProvider === 'omniroute' ? '#D0FF14' : '#DC2626',
+                  border: '1.5px solid #0F0F0F',
                   display: 'inline-block'
                 }} />
                 <span style={{ fontWeight: 800, color: '#0F0F0F' }}>
@@ -205,14 +192,8 @@ export default function Home() {
 
             {/* Center: Connected Obsidian Vault Pill */}
             <button
-              onClick={() => {
-                if (!isLoggedIn) {
-                  setIsAuthOpen(true);
-                } else {
-                  setIsVaultInitOpen(true);
-                }
-              }}
-              title={isLoggedIn ? "Click to configure or change Obsidian vault" : "Sign in to connect personal vault"}
+              onClick={() => setIsVaultInitOpen(true)}
+              title="Click to configure or change Obsidian vault"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -240,17 +221,38 @@ export default function Home() {
               <span style={{
                 fontSize: '0.64rem',
                 color: '#0F0F0F',
-                background: isLoggedIn ? '#D0FF14' : '#F4F4F5',
+                background: '#D0FF14',
                 border: '1px solid #0F0F0F',
                 padding: '1px 6px',
                 fontWeight: 800
               }}>
-                {isLoggedIn ? 'SYNCED' : 'DEMO'}
+                SYNCED
               </span>
             </button>
 
-            {/* Right: Quick Navigation & Telemetry */}
+            {/* Right: Quick Navigation, Setup & Telemetry */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <button
+                onClick={() => setIsSetupOpen(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: '#FFFFFF',
+                  border: '1px solid #0F0F0F',
+                  padding: '3px 8px',
+                  boxShadow: '1px 1px 0px #0F0F0F',
+                  color: '#0F0F0F',
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  cursor: 'pointer'
+                }}
+                title="Open Initial Setup Wizard"
+              >
+                <Sparkles size={12} />
+                <span>SETUP</span>
+              </button>
+
               <Link
                 href="/knowledge"
                 style={{
@@ -266,25 +268,6 @@ export default function Home() {
                 <Network size={13} />
                 <span>VAULT_MAP</span>
               </Link>
-
-              <button
-                onClick={() => setIsVaultInitOpen(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  color: '#0F0F0F',
-                  fontSize: '0.76rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  background: 'none',
-                  border: 'none',
-                  fontFamily: 'var(--font-mono)'
-                }}
-              >
-                <Folder size={13} />
-                <span>VAULT_CONFIG</span>
-              </button>
 
               <div style={{
                 display: 'flex',
@@ -322,6 +305,14 @@ export default function Home() {
         </div>
       </div>
 
+      {/* First-Run Setup Wizard */}
+      <SetupWizard 
+        isOpen={isSetupOpen} 
+        onComplete={() => setIsSetupOpen(false)}
+        canDismiss={true}
+      />
+
+      {/* Knowledge Vault Explorer & Zip Uploader */}
       <VaultInitModal
         isOpen={isVaultInitOpen}
         onClose={() => setIsVaultInitOpen(false)}

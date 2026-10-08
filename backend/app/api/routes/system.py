@@ -139,3 +139,89 @@ async def get_dashboard_summary(x_vault_path: str = Header(None)):
         "top_tags": top_tags,
         "featured_commands": commands[:6]
     }
+
+class SystemSetupRequest(BaseModel):
+    vault_path: Optional[str] = "./vault"
+    model: Optional[str] = "auto/best-coding"
+    provider: Optional[str] = "omniroute"
+    operator_name: Optional[str] = "Operator"
+    agent_name: Optional[str] = "Synapse"
+    omniroute_token: Optional[str] = None
+    omniroute_host: Optional[str] = None
+
+@router.post("/setup")
+async def setup_system(req: SystemSetupRequest):
+    """
+    Called during first-run setup wizard or when reconfiguring system settings.
+    Updates in-memory settings and scans/indexes the vault.
+    """
+    import os
+    if req.vault_path:
+        target = os.path.expanduser(req.vault_path.strip())
+        if not os.path.isabs(target):
+            if not os.path.exists(target):
+                parent_path = os.path.abspath(os.path.join(os.getcwd(), "..", target))
+                if os.path.exists(parent_path):
+                    target = parent_path
+                else:
+                    try:
+                        os.makedirs(target, exist_ok=True)
+                    except Exception:
+                        pass
+            target = os.path.abspath(target)
+        settings.OBSIDIAN_VAULT_PATH = target
+
+    if req.model:
+        settings.DEFAULT_LLM_MODEL = req.model.strip()
+    if req.provider:
+        settings.LLM_PROVIDER = req.provider.strip()
+    if req.operator_name:
+        settings.OPERATOR_NAME = req.operator_name.strip()
+    if req.agent_name:
+        settings.AGENT_NAME = req.agent_name.strip()
+    if req.omniroute_host:
+        settings.OMNIROUTE_BASE_URL = req.omniroute_host.strip()
+
+    note_count = 0
+    safe_path = validate_vault_path(settings.OBSIDIAN_VAULT_PATH)
+    if safe_path:
+        try:
+            notes = obsidian_parser.scan_vault(safe_path)
+            note_count = len(notes)
+            import asyncio
+            asyncio.create_task(rag_engine.index_vault(safe_path))
+        except Exception as e:
+            logger.warning(f"Error scanning vault during setup: {e}")
+
+    return {
+        "status": "success",
+        "vault_path": settings.OBSIDIAN_VAULT_PATH,
+        "note_count": note_count,
+        "model": settings.DEFAULT_LLM_MODEL,
+        "provider": getattr(settings, "LLM_PROVIDER", "omniroute"),
+        "operator_name": getattr(settings, "OPERATOR_NAME", "Operator"),
+        "agent_name": getattr(settings, "AGENT_NAME", "Synapse"),
+        "message": f"System configured successfully. Vault: {settings.OBSIDIAN_VAULT_PATH} ({note_count} notes)."
+    }
+
+@router.get("/setup-status")
+async def get_setup_status():
+    safe_path = validate_vault_path(settings.OBSIDIAN_VAULT_PATH)
+    note_count = 0
+    if safe_path:
+        try:
+            notes = obsidian_parser.scan_vault(safe_path)
+            note_count = len(notes)
+        except Exception:
+            pass
+
+    return {
+        "configured": bool(settings.OBSIDIAN_VAULT_PATH and safe_path),
+        "vault_path": settings.OBSIDIAN_VAULT_PATH or "./vault",
+        "note_count": note_count,
+        "default_model": settings.DEFAULT_LLM_MODEL,
+        "provider": getattr(settings, "LLM_PROVIDER", "omniroute"),
+        "operator_name": getattr(settings, "OPERATOR_NAME", "Operator"),
+        "agent_name": getattr(settings, "AGENT_NAME", "Synapse"),
+        "omniroute_url": getattr(settings, "OMNIROUTE_BASE_URL", "http://localhost:20128")
+    }

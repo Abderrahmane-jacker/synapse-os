@@ -25,6 +25,21 @@ if [ "$1" == "--docker" ] || [ "$1" == "-d" ]; then
 fi
 
 # Native local mode
+# 0. Ensure environment configuration and vault storage exist
+if [ ! -f "$PROJECT_ROOT/.env" ] && [ -f "$PROJECT_ROOT/.env.example" ]; then
+    echo "[+] Initializing root .env from .env.example..."
+    cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
+fi
+
+if [ ! -f "$BACKEND_DIR/.env" ] && [ -f "$PROJECT_ROOT/.env.example" ]; then
+    echo "[+] Initializing backend/.env from .env.example..."
+    cp "$PROJECT_ROOT/.env.example" "$BACKEND_DIR/.env"
+fi
+
+mkdir -p "$PROJECT_ROOT/vault"
+mkdir -p "$PROJECT_ROOT/data/vaults"
+mkdir -p "$PROJECT_ROOT/chroma_data"
+
 # 1. Check Ollama
 if ! curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
     echo "[+] Starting Ollama server..."

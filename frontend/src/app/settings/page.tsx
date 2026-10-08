@@ -11,8 +11,9 @@ import { SystemStatus } from "@/types";
 import { 
   Settings2, UserCheck, Volume2, Palette, Database, Save, Check, 
   RotateCw, Trash2, Download, Upload, Zap, AlertTriangle, X, Cpu, Key, Server,
-  UploadCloud
+  UploadCloud, Sparkles
 } from "lucide-react";
+import SetupWizard from "@/components/setup/SetupWizard";
 
 // ─── Shared UI Components (Brutalist High-Contrast) ─────────────────────────
 
@@ -231,32 +232,13 @@ export default function SettingsPage() {
   const [isIndexing, setIsIndexing] = useState(false);
   const [indexResult, setIndexResult] = useState<string | null>(null);
 
-  const [llmConfirmFlash, setLlmConfirmFlash] = useState(false);
-  const [isPullingModel, setIsPullingModel] = useState(false);
-  const [pullResultMsg, setPullResultMsg] = useState<string | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const handlePullModel = async () => {
-    if (!settings.selectedModel) return;
-    setIsPullingModel(true);
-    setPullResultMsg(`Pulling '${settings.selectedModel}' to Ollama... this may take a moment depending on network.`);
-    try {
-      const res = await api.system.pullModel(settings.selectedModel, settings.ollamaHostUrl);
-      if (res.status === 'success') {
-        setPullResultMsg(`✓ Successfully pulled '${settings.selectedModel}' to local Ollama!`);
-        const data = await api.system.getModels();
-        const rawModels = data.models || [];
-        const parsed: string[] = rawModels.map(m => typeof m === 'string' ? m : (m.name || String(m)));
-        setModels(parsed);
-        setTimeout(() => setPullResultMsg(null), 6000);
-      } else {
-        setPullResultMsg(`✗ Failed to pull: ${res.message || 'Unknown error'}`);
-      }
-    } catch (err: any) {
-      setPullResultMsg(`✗ Error: ${err.message || 'Failed to pull model'}`);
-    } finally {
-      setIsPullingModel(false);
-    }
-  };
+  const [llmConfirmFlash, setLlmConfirmFlash] = useState(false);
+  const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
 
   useEffect(() => {
     setSettings(loadSettings());
@@ -266,7 +248,7 @@ export default function SettingsPage() {
       const parsed: string[] = rawModels.map(m => typeof m === 'string' ? m : (m.name || String(m)));
       setModels(parsed);
     }).catch(console.error);
-  }, []);
+  }, [router]);
 
   const updateSetting = useCallback(<K extends keyof NexusSettings>(key: K, value: NexusSettings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -377,15 +359,6 @@ export default function SettingsPage() {
     fontFamily: 'var(--font-mono)'
   };
 
-  const isInstalledLocally = Boolean(
-    settings.selectedModel?.trim() &&
-    models.some(m => {
-      const cleanM = typeof m === 'string' ? m : (m as any)?.name || String(m);
-      const target = (settings.selectedModel || '').trim();
-      return cleanM === target || cleanM.startsWith(target.split(':')[0]);
-    })
-  );
-
   return (
     <main className="app-container" style={{ background: '#FFFFFF', color: '#0F0F0F' }}>
       <AnimatedBackground />
@@ -415,18 +388,37 @@ export default function SettingsPage() {
               </h1>
             </div>
 
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="brutalist-btn-primary"
-              style={{
-                fontSize: '0.82rem',
-                padding: '10px 22px'
-              }}
-            >
-              {saveFlash ? <Check size={16} /> : <Save size={16} />}
-              <span>{isSaving ? 'SAVING...' : saveFlash ? 'SAVED!' : 'SAVE CHANGES'}</span>
-            </button>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setIsSetupWizardOpen(true)}
+                className="brutalist-btn-secondary"
+                style={{
+                  fontSize: '0.82rem',
+                  padding: '10px 18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                title="Reconfigure all parameters via Setup Wizard"
+              >
+                <Sparkles size={14} />
+                <span>RUN SETUP WIZARD</span>
+              </button>
+
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="brutalist-btn-primary"
+                style={{
+                  fontSize: '0.82rem',
+                  padding: '10px 22px'
+                }}
+              >
+                {saveFlash ? <Check size={16} /> : <Save size={16} />}
+                <span>{isSaving ? 'SAVING...' : saveFlash ? 'SAVED!' : 'SAVE CHANGES'}</span>
+              </button>
+            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -697,66 +689,6 @@ export default function SettingsPage() {
                         : "Type the exact model identifier for your selected provider (e.g. claude-sonnet-5-5, gpt-4o, deepseek-r1:8b)."}
                     </div>
                   </div>
-
-                  {/* Ollama Local Download & Pull Helper */}
-                  {(!settings.llmProvider || settings.llmProvider === 'ollama') && settings.selectedModel?.trim() && (
-                    <div style={{ marginTop: '2px' }}>
-                      {isInstalledLocally ? (
-                        <div style={{
-                          display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem',
-                          color: '#15803D', fontFamily: 'var(--font-mono)', fontWeight: 700,
-                          padding: '10px 14px', background: '#DCFCE7', border: '1px solid #16A34A'
-                        }}>
-                          <Check size={15} />
-                          <span>Model &apos;{settings.selectedModel}&apos; is downloaded &amp; ready in local Ollama.</span>
-                        </div>
-                      ) : (
-                        <div style={{
-                          display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 14px',
-                          background: '#FEF3C7', border: '1px solid #D97706', color: '#78350F', fontFamily: 'var(--font-mono)'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                            <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>
-                              ⬇ Model &apos;{settings.selectedModel}&apos; is not yet downloaded in local Ollama.
-                            </span>
-                            <button
-                              type="button"
-                              onClick={handlePullModel}
-                              disabled={isPullingModel}
-                              style={{
-                                padding: '6px 14px',
-                                background: '#0F0F0F',
-                                color: '#D0FF14',
-                                border: '2px solid #0F0F0F',
-                                fontSize: '0.74rem',
-                                fontWeight: 800,
-                                cursor: isPullingModel ? 'wait' : 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px'
-                              }}
-                            >
-                              <Download size={13} className={isPullingModel ? 'spinning-slow' : ''} />
-                              <span>{isPullingModel ? 'PULLING VIA OLLAMA...' : 'PULL MODEL VIA OLLAMA'}</span>
-                            </button>
-                          </div>
-                          <div style={{ fontSize: '0.74rem', color: '#92400E' }}>
-                            Terminal command: <code style={{ background: '#FDE68A', padding: '2px 6px', fontWeight: 800 }}>ollama pull {settings.selectedModel}</code>
-                          </div>
-                          {pullResultMsg && (
-                            <div style={{
-                              fontSize: '0.76rem', fontWeight: 700, padding: '6px 10px',
-                              background: pullResultMsg.startsWith('✓') ? '#DCFCE7' : '#FEE2E2',
-                              color: pullResultMsg.startsWith('✓') ? '#15803D' : '#991B1B',
-                              border: `1px solid ${pullResultMsg.startsWith('✓') ? '#16A34A' : '#DC2626'}`
-                            }}>
-                              {pullResultMsg}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
 
                 {/* Live LLM Telemetry Card */}
@@ -955,9 +887,132 @@ export default function SettingsPage() {
               </div>
             </div>
 
+            {/* ─── DANGER ZONE: DELETE ACCOUNT ─── */}
+            <div style={{ padding: '24px 28px', border: '2px solid #DC2626', background: '#FFFFFF', boxShadow: '4px 4px 0px #DC2626' }}>
+              <h2 style={{ fontSize: '1.05rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#DC2626', marginBottom: '8px', textTransform: 'uppercase' }}>
+                Danger Zone // Account Deletion
+              </h2>
+              <p style={{ fontSize: '0.82rem', color: '#52525B', marginBottom: '16px', lineHeight: 1.5 }}>
+                Permanently delete your operator account, stored credentials, and associated cloud vault configurations. This action is irreversible.
+              </p>
+              <button
+                onClick={() => {
+                  setDeletePassword("");
+                  setDeleteError(null);
+                  setIsDeleteModalOpen(true);
+                }}
+                style={{
+                  padding: '10px 18px', background: '#DC2626', border: '2px solid #0F0F0F',
+                  boxShadow: '3px 3px 0px #0F0F0F', color: '#FFFFFF', fontWeight: 800, fontSize: '0.78rem',
+                  fontFamily: 'var(--font-mono)', cursor: 'pointer'
+                }}
+              >
+                DELETE OPERATOR ACCOUNT
+              </button>
+            </div>
+
           </div>
         </div>
       </div>
+
+      {isDeleteModalOpen && createPortal(
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 999999, padding: '20px'
+        }}>
+          <div style={{
+            width: '100%', maxWidth: '440px', background: '#FFFFFF',
+            border: '2px solid #DC2626', padding: '32px', position: 'relative',
+            boxShadow: '6px 6px 0px #DC2626', color: '#0F0F0F'
+          }}>
+            <button
+              onClick={() => setIsDeleteModalOpen(false)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: '#FFFFFF', border: '1px solid #0F0F0F', color: '#0F0F0F', cursor: 'pointer', padding: '4px' }}
+            >
+              <X size={16} />
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <AlertTriangle size={22} color="#DC2626" />
+              <h2 style={{ fontSize: '1.15rem', fontFamily: 'var(--font-mono)', fontWeight: 800, margin: 0, color: '#DC2626', textTransform: 'uppercase' }}>
+                CONFIRM DELETION
+              </h2>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: '#52525B', fontFamily: 'var(--font-mono)', marginBottom: '18px' }}>
+              Enter your password to authorize permanent account removal.
+            </p>
+
+            {deleteError && (
+              <div style={{
+                background: '#FEE2E2', border: '1px solid #DC2626',
+                padding: '10px 12px', color: '#991B1B',
+                fontSize: '0.76rem', fontFamily: 'var(--font-mono)', marginBottom: '14px', fontWeight: 700
+              }}>
+                ERROR: {deleteError}
+              </div>
+            )}
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setDeleteError(null);
+              setIsDeleting(true);
+              try {
+                await api.auth.deleteAccount({ password: deletePassword });
+                localStorage.removeItem("nexus_auth_token");
+                localStorage.removeItem("nexus_user");
+                localStorage.removeItem("nexus_settings");
+                window.location.href = "/";
+              } catch (err: any) {
+                setDeleteError(err?.message || "Failed to delete account. Please verify your password.");
+              } finally {
+                setIsDeleting(false);
+              }
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.74rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#DC2626', marginBottom: '6px' }}>
+                  CURRENT_PASSWORD
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={deletePassword}
+                  onChange={e => setDeletePassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  style={{
+                    width: '100%', padding: '9px 12px', background: '#FFFFFF',
+                    border: '2px solid #0F0F0F', color: '#0F0F0F',
+                    fontSize: '0.84rem', fontFamily: 'var(--font-mono)', outline: 'none'
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isDeleting}
+                style={{
+                  marginTop: '6px', padding: '12px', background: '#DC2626', border: '2px solid #0F0F0F',
+                  color: '#FFFFFF', fontSize: '0.8rem',
+                  fontFamily: 'var(--font-mono)', fontWeight: 800, cursor: 'pointer'
+                }}
+              >
+                {isDeleting ? "DELETING ACCOUNT..." : "PERMANENTLY DELETE ACCOUNT"}
+              </button>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      <SetupWizard
+        isOpen={isSetupWizardOpen}
+        onComplete={() => {
+          setIsSetupWizardOpen(false);
+          setSettings(loadSettings());
+        }}
+        canDismiss={true}
+      />
     </main>
   );
 }

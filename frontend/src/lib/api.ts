@@ -223,6 +223,21 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ model, provider }),
       }),
+    setup: (payload: {
+      vault_path?: string;
+      model?: string;
+      provider?: string;
+      operator_name?: string;
+      agent_name?: string;
+      omniroute_token?: string;
+      omniroute_host?: string;
+    }) =>
+      fetchApi<{ status: string; vault_path: string; note_count: number; message: string }>('/api/system/setup', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    getSetupStatus: () =>
+      fetchApi<{ configured: boolean; vault_path: string; note_count: number; default_model: string; provider: string; operator_name: string; agent_name: string }>('/api/system/setup-status'),
   },
   commands: {
     getCommands: () => fetchApi<{

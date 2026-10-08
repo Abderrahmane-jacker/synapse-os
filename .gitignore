@@ -45,5 +45,6 @@ logs/
 
 # User Data & Uploaded Vaults
 data/
-vault/
+vault/*
+!vault/Welcome to SynapseOS.md
 *.zip

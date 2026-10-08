@@ -8,7 +8,9 @@ import {
   Menu, X, Sparkles, Activity, ShieldCheck
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import SetupWizard from '@/components/setup/SetupWizard';
 import { Conversation, SystemStatus } from '@/types';
+
 interface SidebarProps {
   conversations: Conversation[];
   activeId: string | null;
@@ -37,29 +39,39 @@ export default function Sidebar({
   const [editTitle, setEditTitle] = useState("");
 
   const [assistantName, setAssistantName] = useState<string>('Synapse');
+  const [currentUserName, setCurrentUserName] = useState<string>('OPERATOR');
+  const [currentProvider, setCurrentProvider] = useState<string>('omniroute');
+  const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     const refreshUser = () => {
       try {
         const userRaw = localStorage.getItem('nexus_user');
+        const settingsRaw = localStorage.getItem('nexus_settings');
+        if (settingsRaw) {
+          const s = JSON.parse(settingsRaw);
+          if (s.userName) setCurrentUserName(s.userName);
+          if (s.assistantName) setAssistantName(s.assistantName);
+          if (s.llmProvider) setCurrentProvider(s.llmProvider);
+        }
         if (userRaw) {
           const user = JSON.parse(userRaw);
           setCurrentUser(user);
-          setAssistantName(user.assistant_name || "Synapse");
-        } else {
-          setCurrentUser(null);
-          setAssistantName('Synapse');
+          if (user.user_name) setCurrentUserName(user.user_name);
+          if (user.assistant_name) setAssistantName(user.assistant_name);
         }
       } catch (e) {}
     };
 
     refreshUser();
     window.addEventListener("nexus_user_changed", refreshUser);
+    window.addEventListener("nexus_settings_changed", refreshUser);
     window.addEventListener("storage", refreshUser);
 
     return () => {
       window.removeEventListener("nexus_user_changed", refreshUser);
+      window.removeEventListener("nexus_settings_changed", refreshUser);
       window.removeEventListener("storage", refreshUser);
     };
   }, []);
@@ -202,7 +214,7 @@ export default function Sidebar({
         {/* Primary Action Button: New Conversation */}
         <div style={{ padding: '14px 14px 6px 14px' }}>
           <button 
-            onClick={() => onNewChat()}
+            onClick={onNewChat}
             className="brutalist-btn-primary"
             style={{
               width: '100%',
@@ -371,85 +383,82 @@ export default function Sidebar({
           </span>
         </div>
 
-        {/* User Account / Profile Footer */}
+        {/* Operator Profile & Setup Controls */}
         <div style={{
           padding: '12px 14px',
           borderTop: '2px solid #0F0F0F',
           background: '#FFFFFF'
         }}>
-          {currentUser ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', overflow: 'hidden' }}>
+          <div style={{
+            background: '#F4F4F5',
+            border: '2px solid #0F0F0F',
+            boxShadow: '2px 2px 0px #0F0F0F',
+            padding: '10px 12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                 <div style={{
-                  width: '28px',
-                  height: '28px',
-                  background: '#D0FF14',
-                  border: '1px solid #0F0F0F',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.75rem',
-                  fontWeight: 900,
-                  fontFamily: 'var(--font-mono)',
-                  color: '#0F0F0F',
-                  flexShrink: 0
+                  width: '26px', height: '26px', background: '#D0FF14',
+                  border: '1.5px solid #0F0F0F',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: 900, fontSize: '0.75rem', fontFamily: 'var(--font-mono)',
+                  color: '#0F0F0F', flexShrink: 0
                 }}>
-                  OP
+                  {(currentUserName || 'OP').slice(0, 2).toUpperCase()}
                 </div>
-                <div style={{ overflow: 'hidden' }}>
+                <div style={{ minWidth: 0 }}>
                   <div style={{
-                    fontSize: '0.78rem',
-                    fontWeight: 800,
+                    fontWeight: 800, fontSize: '0.78rem',
                     fontFamily: 'var(--font-mono)',
                     color: '#0F0F0F',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis'
                   }}>
-                    {currentUser?.user_name || 'OPERATOR'}
+                    {currentUserName || 'OPERATOR'}
                   </div>
-                  <div style={{ fontSize: '0.66rem', color: '#15803D', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
-                    ● HARDWARE NATIVE
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', overflow: 'hidden' }}>
-                <div style={{
-                  width: '28px',
-                  height: '28px',
-                  background: '#D0FF14',
-                  border: '1px solid #0F0F0F',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.75rem',
-                  fontWeight: 900,
-                  fontFamily: 'var(--font-mono)',
-                  color: '#0F0F0F',
-                  flexShrink: 0
-                }}>
-                  OP
-                </div>
-                <div style={{ overflow: 'hidden' }}>
-                  <div style={{
-                    fontSize: '0.78rem',
-                    fontWeight: 800,
-                    fontFamily: 'var(--font-mono)',
-                    color: '#0F0F0F'
-                  }}>
-                    OPERATOR
-                  </div>
-                  <div style={{ fontSize: '0.66rem', color: '#15803D', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
-                    ● LOCAL SESSION
+                  <div style={{ fontSize: '0.64rem', color: '#71717A', fontFamily: 'var(--font-mono)' }}>
+                    {assistantName} // ONLINE
                   </div>
                 </div>
               </div>
+              <span className="brutalist-tag" style={{
+                fontSize: '0.6rem',
+                background: '#0F0F0F',
+                color: '#FFFFFF',
+                padding: '2px 6px',
+                fontWeight: 800
+              }}>
+                {(currentProvider || 'OMNIROUTE').toUpperCase()}
+              </span>
             </div>
-          )}
+
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button
+                onClick={() => setIsSetupModalOpen(true)}
+                className="brutalist-btn-secondary"
+                style={{ flex: 1, fontSize: '0.7rem', padding: '5px 8px', justifyContent: 'center' }}
+                title="Open Setup Wizard"
+              >
+                <Sparkles size={11} /> SETUP
+              </button>
+              <Link
+                href="/settings"
+                className="brutalist-btn-secondary"
+                style={{ flex: 1, fontSize: '0.7rem', padding: '5px 8px', justifyContent: 'center', textDecoration: 'none' }}
+                title="Settings"
+              >
+                <Settings size={11} /> CONFIG
+              </Link>
+            </div>
+          </div>
         </div>
+
+        <SetupWizard
+          isOpen={isSetupModalOpen}
+          onComplete={() => setIsSetupModalOpen(false)}
+          canDismiss={true}
+        />
       </aside>
     </>
   );
