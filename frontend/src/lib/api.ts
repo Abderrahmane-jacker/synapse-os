@@ -102,8 +102,13 @@ export const api = {
           else if (settings.llmProvider === 'anthropic') body.api_key = settings.anthropicApiKey;
           else if (settings.llmProvider === 'openai') body.api_key = settings.openaiApiKey;
           else if (settings.llmProvider === 'openrouter') body.api_key = settings.openrouterApiKey;
+          else if (settings.llmProvider === 'omniroute') {
+            body.api_key = settings.omnirouteApiKey;
+            body.omniroute_host = settings.omnirouteHostUrl || 'http://localhost:20128';
+          }
 
           if (settings.ollamaHostUrl) body.ollama_host = settings.ollamaHostUrl;
+          if (settings.omnirouteHostUrl) body.omniroute_host = settings.omnirouteHostUrl;
         } catch (e) {}
       }
       const data = await fetchApi<any>('/api/chat', {

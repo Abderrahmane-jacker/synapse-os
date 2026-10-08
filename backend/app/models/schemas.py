@@ -17,6 +17,7 @@ class ChatRequest(BaseModel):
     provider: Optional[str] = "ollama"
     api_key: Optional[str] = None
     ollama_host: Optional[str] = None
+    omniroute_host: Optional[str] = None
     operator_name: Optional[str] = "Operator"
     assistant_name: Optional[str] = "Synapse"
 

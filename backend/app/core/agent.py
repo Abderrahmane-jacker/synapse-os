@@ -18,6 +18,7 @@ class NexusAgent:
         provider: str = "ollama",
         api_key: str = None,
         ollama_host: str = None,
+        omniroute_host: str = None,
         operator_name: str = "Operator",
         assistant_name: str = "Synapse"
     ) -> AsyncGenerator[str, None]:
@@ -55,7 +56,8 @@ class NexusAgent:
             model=model, 
             provider=provider, 
             api_key=api_key, 
-            ollama_host=ollama_host
+            ollama_host=ollama_host,
+            omniroute_host=omniroute_host
         ):
             full_response += chunk
             yield chunk

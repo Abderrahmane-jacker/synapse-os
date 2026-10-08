@@ -121,12 +121,14 @@ interface NexusSettings {
   agentSystemPrompt: string;
   githubRepoUrl?: string;
   githubToken?: string;
-  llmProvider?: 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'ollama';
+  llmProvider?: 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'ollama' | 'omniroute';
   anthropicApiKey?: string;
   openaiApiKey?: string;
   geminiApiKey?: string;
   openrouterApiKey?: string;
   ollamaHostUrl?: string;
+  omnirouteApiKey?: string;
+  omnirouteHostUrl?: string;
 }
 
 export function generateSystemPrompt(op: string = "Operator", ast: string = "Synapse"): string {
@@ -162,7 +164,9 @@ const DEFAULT_SETTINGS: NexusSettings = {
   openaiApiKey: "",
   geminiApiKey: "",
   openrouterApiKey: "",
-  ollamaHostUrl: "http://localhost:11434"
+  ollamaHostUrl: "http://localhost:11434",
+  omnirouteApiKey: "",
+  omnirouteHostUrl: "http://localhost:20128"
 };
 
 function loadSettings(): NexusSettings {
@@ -516,7 +520,8 @@ export default function SettingsPage() {
                       { id: 'openai', name: 'OpenAI GPT', icon: '🧠' },
                       { id: 'gemini', name: 'Google Gemini', icon: '✨' },
                       { id: 'openrouter', name: 'OpenRouter AI', icon: '🌐' },
-                      { id: 'ollama', name: 'Ollama (Local)', icon: '🦙' }
+                      { id: 'ollama', name: 'Ollama (Local)', icon: '🦙' },
+                      { id: 'omniroute', name: 'OmniRoute (Local)', icon: '🔀' }
                     ].map(p => {
                       const isSelected = (settings.llmProvider || 'ollama') === p.id;
                       return (
@@ -635,6 +640,41 @@ export default function SettingsPage() {
                       placeholder="http://localhost:11434"
                       style={inputStyle}
                     />
+                  </div>
+                )}
+
+                {(settings.llmProvider === 'omniroute') && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '6px' }}>
+                        OMNIROUTE_HOST_ENDPOINT
+                      </label>
+                      <input
+                        type="text"
+                        value={settings.omnirouteHostUrl || 'http://localhost:20128'}
+                        onChange={e => updateSetting('omnirouteHostUrl', e.target.value)}
+                        placeholder="http://localhost:20128"
+                        style={inputStyle}
+                      />
+                      <div style={{ fontSize: '0.74rem', color: '#52525B', marginTop: '4px' }}>
+                        Local OmniRoute reverse proxy endpoint (default: http://localhost:20128).
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '6px' }}>
+                        OMNIROUTE_API_KEY (OPTIONAL)
+                      </label>
+                      <input
+                        type="password"
+                        value={settings.omnirouteApiKey || ''}
+                        onChange={e => updateSetting('omnirouteApiKey', e.target.value)}
+                        placeholder="Auto-detected from ~/.omniroute/storage.sqlite if empty"
+                        style={inputStyle}
+                      />
+                      <div style={{ fontSize: '0.74rem', color: '#52525B', marginTop: '4px' }}>
+                        Leave empty to automatically discover your active key from ~/.omniroute/storage.sqlite.
+                      </div>
+                    </div>
                   </div>
                 )}
 

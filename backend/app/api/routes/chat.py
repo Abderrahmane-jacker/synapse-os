@@ -30,6 +30,7 @@ async def chat(request: ChatRequest):
         provider=request.provider,
         api_key=request.api_key,
         ollama_host=request.ollama_host,
+        omniroute_host=request.omniroute_host,
         operator_name=request.operator_name or "Operator",
         assistant_name=request.assistant_name or "Synapse"
     ):
@@ -76,6 +77,7 @@ async def chat_stream(websocket: WebSocket):
             provider = data.get("provider")
             api_key = data.get("api_key")
             ollama_host = data.get("ollama_host")
+            omniroute_host = data.get("omniroute_host")
             operator_name = data.get("operator_name") or "Operator"
             assistant_name = data.get("assistant_name") or "Synapse"
 
@@ -99,6 +101,7 @@ async def chat_stream(websocket: WebSocket):
                     provider=provider,
                     api_key=api_key,
                     ollama_host=ollama_host,
+                    omniroute_host=omniroute_host,
                     operator_name=operator_name,
                     assistant_name=assistant_name
                 ):

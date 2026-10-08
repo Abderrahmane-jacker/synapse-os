@@ -155,8 +155,13 @@ export function useChat() {
               else if (settings.llmProvider === 'anthropic') payload.api_key = settings.anthropicApiKey;
               else if (settings.llmProvider === 'openai') payload.api_key = settings.openaiApiKey;
               else if (settings.llmProvider === 'openrouter') payload.api_key = settings.openrouterApiKey;
+              else if (settings.llmProvider === 'omniroute') {
+                payload.api_key = settings.omnirouteApiKey;
+                payload.omniroute_host = settings.omnirouteHostUrl || 'http://localhost:20128';
+              }
 
               if (settings.ollamaHostUrl) payload.ollama_host = settings.ollamaHostUrl;
+              if (settings.omnirouteHostUrl) payload.omniroute_host = settings.omnirouteHostUrl;
             } catch (e) {}
           }
          

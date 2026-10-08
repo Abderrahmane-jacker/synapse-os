@@ -1,3 +1,5 @@
+import os
+import sqlite3
 import httpx
 import json
 import logging
@@ -10,6 +12,23 @@ class LLMClient:
     def __init__(self):
         self.ollama_url = f"{settings.OLLAMA_BASE_URL}/api"
 
+    @staticmethod
+    def _get_omniroute_active_key() -> Optional[str]:
+        sqlite_path = os.path.expanduser("~/.omniroute/storage.sqlite")
+        if not os.path.exists(sqlite_path):
+            return None
+        try:
+            conn = sqlite3.connect(f"file:{sqlite_path}?mode=ro", uri=True)
+            cursor = conn.cursor()
+            cursor.execute("SELECT key FROM api_keys WHERE is_active=1 LIMIT 1")
+            row = cursor.fetchone()
+            conn.close()
+            if row and row[0]:
+                return row[0]
+        except Exception as e:
+            logger.warning(f"Could not read OmniRoute key from sqlite: {e}")
+        return None
+
     async def chat(
         self, 
         messages: list, 
@@ -17,13 +36,14 @@ class LLMClient:
         provider: str = "ollama", 
         api_key: str = None, 
         ollama_host: str = None,
+        omniroute_host: str = None,
         stream: bool = True
     ) -> AsyncGenerator[str, None]:
         model = (model or settings.DEFAULT_LLM_MODEL or "").strip()
         provider = (provider or "ollama").lower()
 
         if not model:
-            yield "⚠️ **Model Not Configured**: Please enter a model identifier in Settings (e.g. `deepseek-r1:8b`, `claude-3-7-sonnet`, `gpt-4o`) before sending messages."
+            yield "⚠️ **Model Not Configured**: Please enter a model identifier in Settings (e.g. `deepseek-r1:8b`, `claude-3-7-sonnet`, `gpt-4o`, `auto/best-coding`) before sending messages."
             return
 
         try:
@@ -39,6 +59,10 @@ class LLMClient:
             elif provider == "openrouter":
                 async for chunk in self._chat_openrouter(messages, model, api_key):
                     yield chunk
+            elif provider == "omniroute":
+                target_omniroute_host = omniroute_host or (ollama_host if (ollama_host and ":20128" in ollama_host) else "http://localhost:20128")
+                async for chunk in self._chat_omniroute(messages, model, api_key, target_omniroute_host):
+                    yield chunk
             else:
                 async for chunk in self._chat_ollama(messages, model, ollama_host or settings.OLLAMA_BASE_URL, stream):
                     yield chunk
@@ -51,8 +75,9 @@ class LLMClient:
                     f"The connection to `{provider}` (`{model}`) was rejected with HTTP 401 Unauthorized.\n\n"
                     "**To resolve this:**\n"
                     "1. **Switch to Google Gemini (Free)**: Go to **Settings** in the bottom left, select **Google Gemini**, and provide your free Gemini API key from [Google AI Studio](https://aistudio.google.com/).\n"
-                    "2. **Verify Local Ollama**: If you are using local Ollama, confirm the host is reachable without proxy authorization (e.g. `http://127.0.0.1:11434`), or run `ollama serve`.\n"
-                    "3. **Configured API Key**: If using OpenAI, Anthropic, or OpenRouter, double-check your API key in **Settings**."
+                    "2. **OmniRoute (Local Proxy)**: Check that your OmniRoute server is running (`http://localhost:20128`) and that a valid API key is set in Settings or active in `~/.omniroute/storage.sqlite`.\n"
+                    "3. **Verify Local Ollama**: If you are using local Ollama, confirm the host is reachable without proxy authorization (e.g. `http://127.0.0.1:11434`), or run `ollama serve`.\n"
+                    "4. **Configured API Key**: If using OpenAI, Anthropic, or OpenRouter, double-check your API key in **Settings**."
                 )
             else:
                 yield f"Error communicating with AI Provider '{provider}' (Model: '{model}').\nDetails: {err_msg}"
@@ -231,6 +256,63 @@ class LLMClient:
                         except Exception:
                             pass
 
+    async def _chat_omniroute(
+        self, 
+        messages: list, 
+        model: str, 
+        api_key: Optional[str] = None, 
+        omniroute_host: Optional[str] = None
+    ) -> AsyncGenerator[str, None]:
+        key = api_key or self._get_omniroute_active_key()
+        host = (omniroute_host or "http://localhost:20128").rstrip("/")
+        if not host.startswith("http://") and not host.startswith("https://"):
+            host = f"http://{host}"
+
+        headers = {
+            "Content-Type": "application/json"
+        }
+        if key:
+            headers["Authorization"] = f"Bearer {key}"
+
+        formatted_messages = []
+        is_reasoning_model = model.startswith("o1") or model.startswith("o3")
+        for m in messages:
+            msg_copy = dict(m)
+            if is_reasoning_model and msg_copy.get("role") == "system":
+                msg_copy["role"] = "developer"
+            formatted_messages.append(msg_copy)
+
+        payload = {
+            "model": model,
+            "messages": formatted_messages,
+            "stream": True
+        }
+
+        url = f"{host}/v1/chat/completions"
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            async with client.stream("POST", url, headers=headers, json=payload) as response:
+                if response.status_code != 200:
+                    err_body = await response.aread()
+                    raise Exception(f"OmniRoute returned status {response.status_code}: {err_body.decode(errors='ignore')}")
+
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        raw = line[6:].strip()
+                        if raw == "[DONE]":
+                            break
+                        try:
+                            data = json.loads(raw)
+                            choices = data.get("choices", [])
+                            if not choices:
+                                continue
+                            delta = choices[0].get("delta", {})
+                            content = delta.get("content") or delta.get("reasoning_content") or ""
+                            if content:
+                                yield content
+                        except Exception:
+                            pass
+
     _cached_ollama_url: Optional[str] = None
 
     async def _get_working_ollama_url(self, candidate_host: Optional[str] = None) -> str:
@@ -294,25 +376,50 @@ class LLMClient:
                             yield data["message"]["content"]
 
     async def list_models(self) -> list:
-        try:
-            working_url = await self._get_working_ollama_url()
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.get(f"{working_url.rstrip('/')}/api/tags")
-                resp.raise_for_status()
-                return [{"name": m["name"], "provider": "ollama"} for m in resp.json().get("models", [])]
-        except Exception:
-            return []
-
-    async def get_status(self) -> str:
+        models = []
         try:
             working_url = await self._get_working_ollama_url()
             async with httpx.AsyncClient(timeout=3.0) as client:
                 resp = await client.get(f"{working_url.rstrip('/')}/api/tags")
                 if resp.status_code == 200:
-                    return "online"
-                return "offline"
+                    models.extend([{"name": m["name"], "provider": "ollama"} for m in resp.json().get("models", [])])
         except Exception:
-            return "offline"
+            pass
+
+        try:
+            active_key = self._get_omniroute_active_key()
+            headers = {"Authorization": f"Bearer {active_key}"} if active_key else {}
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                resp = await client.get("http://localhost:20128/v1/models", headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json().get("data", [])
+                    models.extend([{"name": m["id"], "provider": "omniroute"} for m in data if "id" in m])
+        except Exception:
+            pass
+
+        return models
+
+    async def get_status(self) -> str:
+        try:
+            working_url = await self._get_working_ollama_url()
+            async with httpx.AsyncClient(timeout=1.5) as client:
+                resp = await client.get(f"{working_url.rstrip('/')}/api/tags")
+                if resp.status_code == 200:
+                    return "online"
+        except Exception:
+            pass
+
+        try:
+            active_key = self._get_omniroute_active_key()
+            headers = {"Authorization": f"Bearer {active_key}"} if active_key else {}
+            async with httpx.AsyncClient(timeout=1.5) as client:
+                resp = await client.get("http://localhost:20128/v1/models", headers=headers)
+                if resp.status_code == 200:
+                    return "online"
+        except Exception:
+            pass
+
+        return "offline"
 
     async def pull_model(self, model: str, candidate_host: Optional[str] = None) -> dict:
         working_url = await self._get_working_ollama_url(candidate_host)
