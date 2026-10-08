@@ -1,4 +1,4 @@
-// Universal Spoken Words TTS Engine for Nexus OS
+// Universal Spoken Words TTS Engine for SynapseOS / 3awa-OS
 // Integrates Edge High-Definition Neural Voice Proxy + Web Speech API Fallback
 
 interface NexusSettings {
@@ -6,6 +6,7 @@ interface NexusSettings {
   ttsSpeed?: number;
   ttsAutoSpeak?: boolean;
   ttsThinkingAnnounce?: boolean;
+  backendUrl?: string;
 }
 
 function getSavedSettings(): NexusSettings {
@@ -17,19 +18,45 @@ function getSavedSettings(): NexusSettings {
   return {};
 }
 
+function getBackendUrl(): string {
+  if (typeof window !== 'undefined') {
+    const saved = getSavedSettings();
+    if (saved.backendUrl) return saved.backendUrl.replace(/\/$/, "");
+    const hostname = window.location.hostname || "localhost";
+    return `http://${hostname}:8000`;
+  }
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+}
+
 class TTSEngine {
   private synth: SpeechSynthesis | null = null;
   private isVoiceEnabled: boolean = true;
   private currentAudio: HTMLAudioElement | null = null;
+  private isUnlocked: boolean = false;
+  private abortController: AbortController | null = null;
+  private audioCtx: AudioContext | null = null;
 
   constructor() {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      this.synth = window.speechSynthesis;
+    if (typeof window !== 'undefined') {
+      if ('speechSynthesis' in window) {
+        this.synth = window.speechSynthesis;
+      }
+      // Auto-unlock audio on the first user interaction anywhere in the window
+      const unlockListener = () => {
+        this.unlockAudio();
+        window.removeEventListener('click', unlockListener);
+        window.removeEventListener('keydown', unlockListener);
+        window.removeEventListener('touchstart', unlockListener);
+      };
+      window.addEventListener('click', unlockListener);
+      window.addEventListener('keydown', unlockListener);
+      window.addEventListener('touchstart', unlockListener);
     }
   }
 
   public unlockAudio() {
     if (typeof window === 'undefined') return;
+    this.isUnlocked = true;
     try {
       if (this.synth) {
         this.synth.resume();
@@ -37,6 +64,19 @@ class TTSEngine {
         dummy.volume = 0;
         this.synth.speak(dummy);
       }
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        if (!this.audioCtx) {
+          this.audioCtx = new AudioCtx();
+        }
+        if (this.audioCtx.state === 'suspended') {
+          this.audioCtx.resume().catch(() => {});
+        }
+      }
+      // Play a tiny silent buffer to satisfy browser Autoplay Policy permanently
+      const audio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAP8A/w==");
+      audio.volume = 0.01;
+      audio.play().catch(() => {});
     } catch (e) {}
   }
 
@@ -53,11 +93,22 @@ class TTSEngine {
     return this.isVoiceEnabled;
   }
 
-  public speak(text: string, onEnd?: () => void) {
+  public speak(text: string, onEnd?: () => void, force: boolean = false) {
     const settings = getSavedSettings();
-    const autoSpeak = settings.ttsAutoSpeak ?? true;
+    // Default to true if not explicitly set to false
+    const autoSpeak = settings.ttsAutoSpeak !== false;
 
-    if (!this.isVoiceEnabled || !autoSpeak || !text.trim()) {
+    if (!this.isVoiceEnabled && !force) {
+      if (onEnd) onEnd();
+      return;
+    }
+
+    if (!autoSpeak && !force) {
+      if (onEnd) onEnd();
+      return;
+    }
+
+    if (!text || !text.trim()) {
       if (onEnd) onEnd();
       return;
     }
@@ -65,11 +116,13 @@ class TTSEngine {
     this.stop();
     this.unlockAudio();
 
-    // Clean text for vocal delivery
-    const cleanText = text
-      .replace(/```[\s\S]*?```/g, 'Code snippet.')
+    // Clean text for natural spoken delivery
+    let cleanText = text
+      .replace(/```[\s\S]*?```/g, 'Code block.')
       .replace(/`([^`]+)`/g, '$1')
-      .replace(/[#*_\-\\`~]/g, ' ')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/\[\[([^\]]+)\]\]/g, '$1')
+      .replace(/[#*_\-\\`~>|]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -78,69 +131,96 @@ class TTSEngine {
       return;
     }
 
+    // If text is very long, limit spoken speech to first 3 sentences or 80 words for instant responsive briefing
+    const sentences = cleanText.match(/[^.!?]+[.!?]+/g);
+    if (sentences && sentences.length > 3) {
+      cleanText = sentences.slice(0, 3).join(' ').trim();
+    } else {
+      const words = cleanText.split(' ');
+      if (words.length > 80) {
+        cleanText = words.slice(0, 80).join(' ') + '...';
+      }
+    }
+
     const voice = settings.ttsVoice || "en-US-AndrewNeural";
     const speed = settings.ttsSpeed ?? 1.0;
     const ratePct = Math.round((speed - 1.0) * 100);
     const rateStr = `${ratePct >= 0 ? '+' : ''}${ratePct}%`;
 
-    // Attempt 1: High-Definition Edge Neural Voice Backend Proxy
     this.speakWithBackendProxy(cleanText, voice, rateStr, speed, onEnd);
   }
 
-  private async speakWithBackendProxy(text: string, voice: string, rateStr: string, speedFloat: number, onEnd?: () => void) {
-    if (typeof window === 'undefined' || !this.isVoiceEnabled) {
+  private async speakWithBackendProxy(
+    text: string, 
+    voice: string, 
+    rateStr: string, 
+    speedFloat: number, 
+    onEnd?: () => void
+  ) {
+    if (typeof window === 'undefined') {
       if (onEnd) onEnd();
       return;
     }
 
+    this.abortController = new AbortController();
+    const signal = this.abortController.signal;
+
     try {
-      const backendApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const proxyUrl = `${backendApiUrl}/api/voice/tts`;
-      
+      const backendUrl = getBackendUrl();
+      const proxyUrl = `${backendUrl}/api/voice/tts`;
+
       const response = await fetch(proxyUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, voice, rate: rateStr })
+        body: JSON.stringify({ text, voice, rate: rateStr }),
+        signal
       });
 
       if (!response.ok) {
-        throw new Error(`TTS POST failed with status ${response.status}`);
+        throw new Error(`TTS status ${response.status}`);
       }
 
       const blob = await response.blob();
       const audioUrl = URL.createObjectURL(blob);
 
-      this.currentAudio = new Audio(audioUrl);
-      this.currentAudio.playbackRate = 1.0;
+      const audio = new Audio(audioUrl);
+      this.currentAudio = audio;
+      audio.playbackRate = 1.0;
 
-      this.currentAudio.onended = () => {
+      audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
-        this.currentAudio = null;
+        if (this.currentAudio === audio) {
+          this.currentAudio = null;
+        }
         if (onEnd) onEnd();
       };
 
-      this.currentAudio.onerror = (err) => {
+      audio.onerror = (err) => {
         URL.revokeObjectURL(audioUrl);
-        console.warn('Backend Neural TTS Proxy error, trying WebSpeech fallback:', err);
-        this.currentAudio = null;
+        if (this.currentAudio === audio) {
+          this.currentAudio = null;
+        }
+        console.warn('Backend TTS audio error, falling back to WebSpeech:', err);
         this.speakWithWebSpeechFallback(text, voice, speedFloat, onEnd);
       };
 
-      const playPromise = this.currentAudio.play();
+      const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.catch(err => {
           if (err?.name === 'AbortError') {
-            // Playback was intentionally stopped or interrupted
             if (onEnd) onEnd();
             return;
           }
-          console.warn('Audio playback blocked or failed, trying WebSpeech fallback:', err);
-          this.currentAudio = null;
+          console.warn('Audio play failed, falling back to WebSpeech:', err);
+          if (this.currentAudio === audio) {
+            this.currentAudio = null;
+          }
           this.speakWithWebSpeechFallback(text, voice, speedFloat, onEnd);
         });
       }
-    } catch (e) {
-      console.warn('Backend TTS Proxy Exception:', e);
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return;
+      console.warn('Backend TTS fetch exception, trying WebSpeech:', e);
       this.speakWithWebSpeechFallback(text, voice, speedFloat, onEnd);
     }
   }
@@ -153,10 +233,11 @@ class TTSEngine {
 
     try {
       this.synth.resume();
+      this.synth.cancel();
+
       const utterance = new SpeechSynthesisUtterance(text);
       const voices = this.synth.getVoices();
 
-      // Find matching voice name or english voice
       const matched = voices.find(v => v.name.toLowerCase().includes(voiceName.toLowerCase())) ||
                       voices.find(v => v.lang.startsWith('en'));
 
@@ -173,13 +254,20 @@ class TTSEngine {
   }
 
   public stop() {
-    if (this.synth) {
-      try { this.synth.cancel(); } catch (e) {}
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
     }
     if (this.currentAudio) {
       try {
         this.currentAudio.pause();
-        this.currentAudio = null;
+        this.currentAudio.currentTime = 0;
+      } catch (e) {}
+      this.currentAudio = null;
+    }
+    if (this.synth) {
+      try {
+        this.synth.cancel();
       } catch (e) {}
     }
   }

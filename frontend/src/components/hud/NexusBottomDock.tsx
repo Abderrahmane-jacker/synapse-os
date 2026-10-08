@@ -79,7 +79,7 @@ export default function NexusBottomDock({
           clearTimeout(silenceTimerRef.current);
         }
         if (ttsEngine && isVoiceActive) {
-          ttsEngine.speak("Acknowledged, operator.");
+          ttsEngine.speak("Acknowledged, operator.", undefined, true);
         }
         return;
       }
@@ -246,6 +246,9 @@ export default function NexusBottomDock({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
+            if (ttsEngine) {
+              ttsEngine.unlockAudio();
+            }
             toggleListening();
           }}
           title={isListening ? "Stop listening" : "Start hands-free voice mode"}
@@ -296,7 +299,13 @@ export default function NexusBottomDock({
         <button
           type="button"
           title={isVoiceActive ? (isSpeaking ? "TTS Voice Speaking..." : "TTS Voice Active (Click to Mute)") : "TTS Voice Muted (Click to Enable)"}
-          onClick={onVoiceToggle}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (ttsEngine) {
+              ttsEngine.unlockAudio();
+            }
+            if (onVoiceToggle) onVoiceToggle();
+          }}
           style={{
             width: '42px', height: '42px',
             background: isSpeaking ? '#D0FF14' : isVoiceActive ? '#E4FF66' : '#FFFFFF',

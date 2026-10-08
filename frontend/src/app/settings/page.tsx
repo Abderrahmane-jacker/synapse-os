@@ -142,7 +142,7 @@ const DEFAULT_SETTINGS: NexusSettings = {
   userName: "OPERATOR",
   ttsVoice: "en-US-AndrewNeural",
   ttsSpeed: 1.0,
-  ttsAutoSpeak: false,
+  ttsAutoSpeak: true,
   ttsThinkingAnnounce: false,
   voiceInputEnabled: true,
   graphNodeGlow: 5,
@@ -182,6 +182,9 @@ function loadSettings(): NexusSettings {
     let s = { ...DEFAULT_SETTINGS };
     if (raw) {
       s = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    }
+    if (s.ttsAutoSpeak === undefined) {
+      s.ttsAutoSpeak = true;
     }
     if (s.selectedModel === 'gemma4:31b-cloud' || s.selectedModel === 'deepseek-r1:8b') {
       s.selectedModel = '';

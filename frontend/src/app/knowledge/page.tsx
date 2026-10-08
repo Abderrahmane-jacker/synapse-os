@@ -242,7 +242,12 @@ export default function KnowledgePage() {
       const next = !prev;
       if (ttsEngine) {
         ttsEngine.setEnabled(next);
-        if (!next) setIsSpeaking(false);
+        if (!next) {
+          setIsSpeaking(false);
+        } else {
+          ttsEngine.unlockAudio();
+          ttsEngine.speak("Voice output enabled.", () => setIsSpeaking(false), true);
+        }
       }
       return next;
     });
@@ -255,7 +260,7 @@ export default function KnowledgePage() {
     if (trimmedMsg === 'claude' || trimmedMsg.startsWith('claude ')) {
       let finalCommand = trimmedMsg;
       if (trimmedMsg === 'claude') {
-        finalCommand = 'claude --model deepseek-r1:8b --agent synapse';
+        finalCommand = 'claude --model gemma4:31b-cloud --agent synapse';
       }
       router.push(`/agent?command=${encodeURIComponent(finalCommand)}`);
       return;
@@ -272,14 +277,14 @@ export default function KnowledgePage() {
     setLatestAnswer("");
     setRagPathNodes([]);
 
-    // Vocal Audio Prompt when Assistant starts thinking
-    let thinkingAnnounce = true;
-    let currentUserName = "Abdo";
+    // Vocal Audio Prompt when Assistant starts thinking (opt-in to avoid audio collision)
+    let thinkingAnnounce = false;
+    let currentUserName = "Operator";
     try {
       const saved = localStorage.getItem("nexus_settings");
       if (saved) {
         const parsed = JSON.parse(saved);
-        thinkingAnnounce = parsed.ttsThinkingAnnounce ?? true;
+        thinkingAnnounce = parsed.ttsThinkingAnnounce === true;
         if (parsed.userName) currentUserName = parsed.userName;
       }
     } catch {}
@@ -372,7 +377,7 @@ export default function KnowledgePage() {
       // Trigger Browser Text-to-Speech (TTS) concurrently with typing
       if (ttsEngine && isVoiceActive) {
         setIsSpeaking(true);
-        ttsEngine.speak(fullText, () => setIsSpeaking(false));
+        ttsEngine.speak(fullText, () => setIsSpeaking(false), true);
       }
 
       // Smooth Voice-Synchronized Typewriter Effect (slower, natural spoken pace)
@@ -402,7 +407,7 @@ export default function KnowledgePage() {
   const { isStreaming: isVisionMode, toggleStream: toggleVisionMode, captureFrame } = useVisionStream();
 
   const handleAgentRun = () => {
-    router.push(`/?msg=${encodeURIComponent('claude --model deepseek-r1:8b --agent synapse')}`);
+    router.push(`/?msg=${encodeURIComponent('claude --model gemma4:31b-cloud --agent synapse')}`);
   };
 
   const displayNotes = searchQuery ? searchResults : notes;

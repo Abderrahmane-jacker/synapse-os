@@ -28,7 +28,7 @@ export default function MessageBubble({ message, isStreaming }: { message: Messa
   };
 
   const handleSpeak = () => {
-    ttsEngine?.speak(message.content);
+    ttsEngine?.speak(message.content, undefined, true);
   };
 
   return (

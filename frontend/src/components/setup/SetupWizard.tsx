@@ -146,6 +146,9 @@ export default function SetupWizard({
       openaiApiKey: provider === "openai" ? token : (existingSettings.openaiApiKey || ""),
       openrouterApiKey: provider === "openrouter" ? token : (existingSettings.openrouterApiKey || ""),
       agentSystemPrompt: generateSystemPrompt(op, ast),
+      ttsAutoSpeak: existingSettings.ttsAutoSpeak ?? true,
+      ttsThinkingAnnounce: existingSettings.ttsThinkingAnnounce ?? false,
+      voiceInputEnabled: existingSettings.voiceInputEnabled ?? true,
       backendUrl: existingSettings.backendUrl || "http://localhost:8000"
     };
 
