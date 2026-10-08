@@ -692,7 +692,9 @@ export default function SettingsPage() {
                       style={inputStyle}
                     />
                     <div style={{ fontSize: '0.74rem', color: '#52525B', marginTop: '4px' }}>
-                      Type the exact model identifier for your selected provider (e.g. claude-sonnet-5-5, gpt-6-astra, deepseek-r1:8b).
+                      {settings.llmProvider === 'omniroute' 
+                        ? "For OmniRoute, use dynamic auto routing (e.g. auto/best-coding, auto/best-reasoning, auto/best-fast, or 'auto')."
+                        : "Type the exact model identifier for your selected provider (e.g. claude-sonnet-5-5, gpt-4o, deepseek-r1:8b)."}
                     </div>
                   </div>
 
@@ -772,7 +774,7 @@ export default function SettingsPage() {
                     </div>
                     <div style={{ color: '#A1A1AA' }}>Model:</div>
                     <div style={{ color: '#FFFFFF' }}>
-                      {settings.selectedModel || 'NOT CONFIGURED'}
+                      {settings.selectedModel || (settings.llmProvider === 'omniroute' ? 'auto/best-coding (DYNAMIC AUTO)' : 'NOT CONFIGURED')}
                     </div>
                     <div style={{ color: '#A1A1AA' }}>Security:</div>
                     <div style={{ color: '#D0FF14', fontWeight: 700 }}>

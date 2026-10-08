@@ -141,8 +141,13 @@ export function useChat() {
           if (settingsStr) {
             try {
               const settings = JSON.parse(settingsStr);
-              if (settings.selectedModel) payload.model = settings.selectedModel;
-              else if (settings.agentModel) payload.model = settings.agentModel;
+              if (settings.selectedModel && settings.selectedModel !== 'deepseek-r1:8b') {
+                payload.model = settings.selectedModel.toLowerCase() === 'auto' ? 'auto/best-coding' : settings.selectedModel;
+              } else if (settings.agentModel && settings.agentModel !== 'deepseek-r1:8b') {
+                payload.model = settings.agentModel;
+              } else if (settings.llmProvider === 'omniroute') {
+                payload.model = 'auto/best-coding';
+              }
 
               if (settings.agentSystemPrompt) {
                 payload.system_prompt = settings.agentSystemPrompt

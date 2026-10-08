@@ -29,6 +29,45 @@ class LLMClient:
             logger.warning(f"Could not read OmniRoute key from sqlite: {e}")
         return None
 
+    @classmethod
+    def resolve_model(cls, model: Optional[str], provider: str) -> str:
+        clean = (model or "").strip()
+        provider = (provider or "omniroute").lower()
+
+        # If user explicitly provided a model that isn't legacy hardcoded default or "auto"
+        if clean and clean.lower() not in ["auto", "default", "deepseek-r1:8b", "none"]:
+            if provider == "omniroute":
+                low = clean.lower()
+                if low in ["best-coding", "coding"]:
+                    return "auto/best-coding"
+                if low in ["best-reasoning", "reasoning"]:
+                    return "auto/best-reasoning"
+                if low in ["best-fast", "fast"]:
+                    return "auto/best-fast"
+                if low in ["best-chat", "chat"]:
+                    return "auto/best-chat"
+                if low in ["best-vision", "vision"]:
+                    return "auto/best-vision"
+                if "/" not in clean:
+                    return f"auto/{clean}"
+            return clean
+
+        # Dynamic defaults based on provider
+        if provider == "omniroute":
+            return "auto/best-coding"
+        elif provider == "gemini":
+            return "gemini-2.5-flash"
+        elif provider == "anthropic":
+            return "claude-3-7-sonnet-20250219"
+        elif provider == "openai":
+            return "gpt-4o"
+        elif provider == "openrouter":
+            return "openrouter/auto"
+        else: # ollama
+            if clean and clean.lower() not in ["auto", "default"]:
+                return clean
+            return "deepseek-r1:8b"
+
     async def chat(
         self, 
         messages: list, 
@@ -39,12 +78,8 @@ class LLMClient:
         omniroute_host: str = None,
         stream: bool = True
     ) -> AsyncGenerator[str, None]:
-        model = (model or settings.DEFAULT_LLM_MODEL or "").strip()
         provider = (provider or "ollama").lower()
-
-        if not model:
-            yield "⚠️ **Model Not Configured**: Please enter a model identifier in Settings (e.g. `deepseek-r1:8b`, `claude-3-7-sonnet`, `gpt-4o`, `auto/best-coding`) before sending messages."
-            return
+        model = self.resolve_model(model, provider)
 
         try:
             if provider == "gemini":
@@ -69,7 +104,14 @@ class LLMClient:
         except Exception as e:
             logger.error(f"LLM execution failed for provider '{provider}', model '{model}': {e}")
             err_msg = str(e)
-            if "401" in err_msg or "Unauthorized" in err_msg:
+            if "Unable to determine provider" in err_msg:
+                yield (
+                    f"⚠️ **OmniRoute Model Routing Notice**:\n\n"
+                    f"Model `{model}` could not be resolved by OmniRoute.\n\n"
+                    "OmniRoute requires a dynamic combo (e.g. `auto/best-coding`, `auto/best-reasoning`, `auto/best-fast`, `auto/best-chat`) or a provider prefix (e.g. `openai/model-name`).\n\n"
+                    "**Tip**: Leave the model identifier empty or type `auto` in Settings to dynamically route to the best available model."
+                )
+            elif "401" in err_msg or "Unauthorized" in err_msg:
                 yield (
                     "### 🔒 AI Provider Authentication Required (401 Unauthorized)\n\n"
                     f"The connection to `{provider}` (`{model}`) was rejected with HTTP 401 Unauthorized.\n\n"
@@ -263,6 +305,7 @@ class LLMClient:
         api_key: Optional[str] = None, 
         omniroute_host: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
+        model = self.resolve_model(model, "omniroute")
         key = api_key or self._get_omniroute_active_key()
         host = (omniroute_host or "http://localhost:20128").rstrip("/")
         if not host.startswith("http://") and not host.startswith("https://"):

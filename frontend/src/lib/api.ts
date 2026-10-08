@@ -88,8 +88,13 @@ export const api = {
       if (settingsStr) {
         try {
           const settings = JSON.parse(settingsStr);
-          if (settings.selectedModel) body.model = settings.selectedModel;
-          else if (settings.agentModel) body.model = settings.agentModel;
+          if (settings.selectedModel && settings.selectedModel !== 'deepseek-r1:8b') {
+            body.model = settings.selectedModel.toLowerCase() === 'auto' ? 'auto/best-coding' : settings.selectedModel;
+          } else if (settings.agentModel && settings.agentModel !== 'deepseek-r1:8b') {
+            body.model = settings.agentModel;
+          } else if (settings.llmProvider === 'omniroute') {
+            body.model = 'auto/best-coding';
+          }
 
           if (settings.agentSystemPrompt) {
             body.system_prompt = settings.agentSystemPrompt

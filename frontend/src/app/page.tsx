@@ -193,7 +193,7 @@ export default function Home() {
 
               <div className="brutalist-tag brutalist-tag-white" style={{ fontSize: '0.7rem', padding: '2px 8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Cpu size={12} />
-                <span style={{ fontWeight: 700 }}>{activeModel || status?.model || 'NO MODEL'}</span>
+                <span style={{ fontWeight: 700 }}>{activeModel || (activeProvider === 'omniroute' ? 'auto/best-coding' : (status?.model || 'NO MODEL'))}</span>
               </div>
 
               {activeProvider && activeProvider !== 'ollama' && (
