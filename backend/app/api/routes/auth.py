@@ -127,37 +127,6 @@ async def update_profile(req: UpdateProfileRequest, authorization: Optional[str]
         }
     }
 
-class ChangePasswordRequest(BaseModel):
-    current_password: str
-    new_password: str
-
-@router.post("/change-password")
-async def change_password(req: ChangePasswordRequest, authorization: Optional[str] = Header(None)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header.")
-
-    token = authorization.split(" ")[1]
-    payload = decode_access_token(token)
-    if not payload or "sub" not in payload:
-        raise HTTPException(status_code=401, detail="Invalid or expired token.")
-
-    user = await db_manager.get_user_by_id(payload["sub"])
-    if not user:
-        raise HTTPException(status_code=404, detail="User account not found.")
-
-    if not verify_password(req.current_password, user["hashed_password"]):
-        raise HTTPException(status_code=400, detail="Current password is incorrect.")
-
-    if len(req.new_password) < 4:
-        raise HTTPException(status_code=400, detail="New password must be at least 4 characters long.")
-
-    if req.current_password == req.new_password:
-        raise HTTPException(status_code=400, detail="New password must be different from current password.")
-
-    hashed_new = hash_password(req.new_password)
-    await db_manager.update_user_password(user["id"], hashed_new)
-    return {"status": "success", "message": "Password changed successfully."}
-
 class DeleteAccountRequest(BaseModel):
     password: str
 

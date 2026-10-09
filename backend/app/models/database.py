@@ -391,18 +391,5 @@ class DatabaseManager:
                 await db.commit()
             except Exception as e:
                 logger.warning(f"Failed to update profile in sqlite: {e}")
-    async def update_user_password(self, user_id: str, hashed_password: str):
-        if self.is_postgres and self.pool:
-            async with self.pool.acquire() as conn:
-                try:
-                    await conn.execute("UPDATE users SET hashed_password = $1 WHERE id = $2::uuid", hashed_password, user_id)
-                except Exception as e:
-                    logger.warning(f"Failed to update password in postgres: {e}")
-                    raise e
-            return
-
-        async with aiosqlite.connect(self.sqlite_db_path) as db:
-            await db.execute("UPDATE users SET hashed_password = ? WHERE id = ?", (hashed_password, user_id))
-            await db.commit()
 
 db_manager = DatabaseManager()
