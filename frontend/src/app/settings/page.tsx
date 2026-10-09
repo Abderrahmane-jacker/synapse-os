@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/sidebar/Sidebar";
 import AnimatedBackground from "@/components/ui/AnimatedBackground";
 import { useChat } from "@/hooks/useChat"; 
+import { createPortal } from "react-dom";
 import { api } from "@/lib/api";
 import { SystemStatus } from "@/types";
 import { 
   Settings2, UserCheck, Volume2, Palette, Database, Save, Check, 
   RotateCw, Trash2, Download, Upload, Zap, Cpu, Key, Server,
-  UploadCloud, Sparkles
+  UploadCloud, Sparkles, AlertTriangle, X, LogOut, Lock
 } from "lucide-react";
 import SetupWizard from "@/components/setup/SetupWizard";
 
@@ -254,6 +255,17 @@ export default function SettingsPage() {
   const [saveFlash, setSaveFlash] = useState(false);
   const [isIndexing, setIsIndexing] = useState(false);
   const [indexResult, setIndexResult] = useState<string | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
   const [llmConfirmFlash, setLlmConfirmFlash] = useState(false);
   const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
@@ -392,6 +404,61 @@ export default function SettingsPage() {
     }
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (!currentPassword) {
+      setPasswordError("Please enter your current password.");
+      return;
+    }
+    if (newPassword.length < 4) {
+      setPasswordError("New password must be at least 4 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+    if (currentPassword === newPassword) {
+      setPasswordError("New password cannot be identical to current password.");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const res = await api.auth.changePassword({
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      setPasswordSuccess(res.message || "Password updated successfully.");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      setPasswordError(err?.message || "Failed to update password. Please check your credentials.");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('nexus_auth_token');
+    localStorage.removeItem('nexus_user');
+    try {
+      const raw = localStorage.getItem('nexus_settings');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        parsed.userName = "GUEST_OPERATOR";
+        parsed.assistantName = "Synapse";
+        localStorage.setItem('nexus_settings', JSON.stringify(parsed));
+      }
+    } catch (e) {}
+    window.dispatchEvent(new Event("nexus_user_changed"));
+    window.location.href = '/';
+  };
+
   const selectStyle = {
     width: '100%', padding: '10px 14px',
     background: '#FFFFFF', border: '2px solid #0F0F0F',
@@ -452,6 +519,25 @@ export default function SettingsPage() {
               >
                 <Sparkles size={14} />
                 <span>RUN SETUP WIZARD</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="brutalist-btn-secondary"
+                style={{
+                  fontSize: '0.82rem',
+                  padding: '10px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: '#DC2626',
+                  borderColor: '#DC2626'
+                }}
+                title="Log Out of Operator Session"
+              >
+                <LogOut size={14} />
+                <span>LOG OUT</span>
               </button>
 
               <button
@@ -935,9 +1021,208 @@ export default function SettingsPage() {
               </div>
             </div>
 
+            {/* ─── ACCOUNT SECURITY: CHANGE PASSWORD ─── */}
+            <div className="brutalist-card-static" style={{ padding: '28px 32px' }}>
+              <SectionHeader icon={<Lock size={18} />} title="Operator Credentials & Security" />
+              
+              <p style={{ fontSize: '0.82rem', color: '#52525B', marginBottom: '18px', lineHeight: 1.5 }}>
+                Update your account password to secure terminal access, vault sync, and cloud telemetry endpoints.
+              </p>
+
+              {passwordError && (
+                <div style={{
+                  background: '#FEE2E2', border: '1px solid #DC2626',
+                  padding: '10px 14px', color: '#991B1B',
+                  fontSize: '0.78rem', fontFamily: 'var(--font-mono)', marginBottom: '16px', fontWeight: 700
+                }}>
+                  ERROR: {passwordError}
+                </div>
+              )}
+
+              {passwordSuccess && (
+                <div style={{
+                  background: '#DCFCE7', border: '1px solid #15803D',
+                  padding: '10px 14px', color: '#15803D',
+                  fontSize: '0.78rem', fontFamily: 'var(--font-mono)', marginBottom: '16px', fontWeight: 700
+                }}>
+                  ✓ {passwordSuccess}
+                </div>
+              )}
+
+              <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '440px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '6px' }}>
+                    CURRENT_PASSWORD
+                  </label>
+                  <input
+                    type="password"
+                    value={currentPassword}
+                    onChange={e => setCurrentPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    style={inputStyle}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '6px' }}>
+                    NEW_PASSWORD
+                  </label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    style={inputStyle}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F', marginBottom: '6px' }}>
+                    CONFIRM_NEW_PASSWORD
+                  </label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    style={inputStyle}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isChangingPassword}
+                  className="brutalist-btn-primary"
+                  style={{
+                    alignSelf: 'flex-start',
+                    fontSize: '0.8rem',
+                    padding: '10px 20px',
+                    marginTop: '4px'
+                  }}
+                >
+                  <Lock size={15} />
+                  <span>{isChangingPassword ? "UPDATING PASSWORD..." : "UPDATE PASSWORD"}</span>
+                </button>
+              </form>
+            </div>
+
+            {/* ─── DANGER ZONE: DELETE ACCOUNT ─── */}
+            <div style={{ padding: '24px 28px', border: '2px solid #DC2626', background: '#FFFFFF', boxShadow: '4px 4px 0px #DC2626' }}>
+              <h2 style={{ fontSize: '1.05rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#DC2626', marginBottom: '8px', textTransform: 'uppercase' }}>
+                Danger Zone // Account Deletion
+              </h2>
+              <p style={{ fontSize: '0.82rem', color: '#52525B', marginBottom: '16px', lineHeight: 1.5 }}>
+                Permanently delete your operator account, stored credentials, and associated cloud vault configurations. This action is irreversible.
+              </p>
+              <button
+                onClick={() => {
+                  setDeletePassword("");
+                  setDeleteError(null);
+                  setIsDeleteModalOpen(true);
+                }}
+                style={{
+                  padding: '10px 18px', background: '#DC2626', border: '2px solid #0F0F0F',
+                  boxShadow: '3px 3px 0px #0F0F0F', color: '#FFFFFF', fontWeight: 800, fontSize: '0.78rem',
+                  fontFamily: 'var(--font-mono)', cursor: 'pointer'
+                }}
+              >
+                DELETE OPERATOR ACCOUNT
+              </button>
+            </div>
+
           </div>
         </div>
       </div>
+
+      {isDeleteModalOpen && createPortal(
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 999999, padding: '20px'
+        }}>
+          <div style={{
+            width: '100%', maxWidth: '440px', background: '#FFFFFF',
+            border: '2px solid #DC2626', padding: '32px', position: 'relative',
+            boxShadow: '6px 6px 0px #DC2626', color: '#0F0F0F'
+          }}>
+            <button
+              onClick={() => setIsDeleteModalOpen(false)}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: '#FFFFFF', border: '1px solid #0F0F0F', color: '#0F0F0F', cursor: 'pointer', padding: '4px' }}
+            >
+              <X size={16} />
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <AlertTriangle size={22} color="#DC2626" />
+              <h2 style={{ fontSize: '1.15rem', fontFamily: 'var(--font-mono)', fontWeight: 800, margin: 0, color: '#DC2626', textTransform: 'uppercase' }}>
+                CONFIRM DELETION
+              </h2>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: '#52525B', fontFamily: 'var(--font-mono)', marginBottom: '18px' }}>
+              Enter your password to authorize permanent account removal.
+            </p>
+
+            {deleteError && (
+              <div style={{
+                background: '#FEE2E2', border: '1px solid #DC2626',
+                padding: '10px 12px', color: '#991B1B',
+                fontSize: '0.76rem', fontFamily: 'var(--font-mono)', marginBottom: '14px', fontWeight: 700
+              }}>
+                ERROR: {deleteError}
+              </div>
+            )}
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setDeleteError(null);
+              setIsDeleting(true);
+              try {
+                await api.auth.deleteAccount({ password: deletePassword });
+                localStorage.removeItem("nexus_auth_token");
+                localStorage.removeItem("nexus_user");
+                localStorage.removeItem("nexus_settings");
+                window.location.href = "/";
+              } catch (err: any) {
+                setDeleteError(err?.message || "Failed to delete account. Please verify your password.");
+              } finally {
+                setIsDeleting(false);
+              }
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.74rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#DC2626', marginBottom: '6px' }}>
+                  CURRENT_PASSWORD
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={deletePassword}
+                  onChange={e => setDeletePassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  style={{
+                    width: '100%', padding: '9px 12px', background: '#FFFFFF',
+                    border: '2px solid #0F0F0F', color: '#0F0F0F',
+                    fontSize: '0.84rem', fontFamily: 'var(--font-mono)', outline: 'none'
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isDeleting}
+                style={{
+                  marginTop: '6px', padding: '12px', background: '#DC2626', border: '2px solid #0F0F0F',
+                  color: '#FFFFFF', fontSize: '0.8rem',
+                  fontFamily: 'var(--font-mono)', fontWeight: 800, cursor: 'pointer'
+                }}
+              >
+                {isDeleting ? "DELETING ACCOUNT..." : "PERMANENTLY DELETE ACCOUNT"}
+              </button>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
 
       <SetupWizard
         isOpen={isSetupWizardOpen}

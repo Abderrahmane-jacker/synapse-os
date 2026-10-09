@@ -295,6 +295,11 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
+    changePassword: (data: { current_password: string; new_password: string }) =>
+      fetchApi<{ status: string; message: string }>('/api/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
     deleteAccount: (data: { password: string }) =>
       fetchApi<{ status: string; message: string }>('/api/auth/delete-account', {
         method: 'POST',
