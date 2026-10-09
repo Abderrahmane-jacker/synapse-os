@@ -447,7 +447,7 @@ export default function Sidebar({
               <button
                 onClick={() => setIsSetupModalOpen(true)}
                 className="brutalist-btn-secondary"
-                style={{ flex: 1, fontSize: '0.7rem', padding: '5px 8px', justifyContent: 'center' }}
+                style={{ flex: 1, fontSize: '0.7rem', padding: '5px 6px', justifyContent: 'center' }}
                 title="Open Setup Wizard"
               >
                 <Sparkles size={11} /> SETUP
@@ -455,11 +455,19 @@ export default function Sidebar({
               <Link
                 href="/settings"
                 className="brutalist-btn-secondary"
-                style={{ flex: 1, fontSize: '0.7rem', padding: '5px 8px', justifyContent: 'center', textDecoration: 'none' }}
+                style={{ flex: 1, fontSize: '0.7rem', padding: '5px 6px', justifyContent: 'center', textDecoration: 'none' }}
                 title="Settings"
               >
                 <Settings size={11} /> CONFIG
               </Link>
+              <button
+                onClick={handleLogout}
+                className="brutalist-btn-secondary"
+                style={{ fontSize: '0.7rem', padding: '5px 8px', justifyContent: 'center', color: '#DC2626', borderColor: '#DC2626' }}
+                title="Log Out / Terminate Session"
+              >
+                <LogOut size={11} /> LOGOUT
+              </button>
             </div>
           </div>
         </div>
