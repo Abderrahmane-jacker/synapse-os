@@ -15,7 +15,10 @@ export function useChat() {
     if (userRaw) {
       api.chat.getConversations()
         .then(setConversations)
-        .catch(console.error);
+        .catch((err) => {
+          console.warn("Backend not yet reachable for conversations:", err);
+          setConversations([]);
+        });
     } else {
       setConversations([]);
       setMessages([]);

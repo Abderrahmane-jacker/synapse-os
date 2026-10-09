@@ -47,7 +47,7 @@ export default function Home() {
 
   // Check setup state on load
   useEffect(() => {
-    api.system.getStatus().then(setStatus).catch(console.error);
+    api.system.getStatus().then(setStatus).catch(() => {});
 
     const refreshState = () => {
       if (typeof window === 'undefined') return;
@@ -82,7 +82,7 @@ export default function Home() {
         } catch (e) {}
       }
 
-      api.system.getStatus().then(setStatus).catch(console.error);
+      api.system.getStatus().then(setStatus).catch(() => {});
     };
 
     refreshState();
