@@ -49,18 +49,28 @@ export default function Sidebar({
       try {
         const userRaw = localStorage.getItem('nexus_user');
         const settingsRaw = localStorage.getItem('nexus_settings');
-        if (settingsRaw) {
-          const s = JSON.parse(settingsRaw);
-          if (s.userName) setCurrentUserName(s.userName);
-          if (s.assistantName) setAssistantName(s.assistantName);
-          if (s.llmProvider) setCurrentProvider(s.llmProvider);
-        }
+        let opName = 'OPERATOR';
+        let astName = 'Synapse';
+        let prov = 'omniroute';
+
         if (userRaw) {
           const user = JSON.parse(userRaw);
           setCurrentUser(user);
-          if (user.user_name) setCurrentUserName(user.user_name);
-          if (user.assistant_name) setAssistantName(user.assistant_name);
+          if (user.user_name) opName = user.user_name;
+          if (user.assistant_name) astName = user.assistant_name;
         }
+
+        // nexus_settings takes priority as it represents the active runtime configuration
+        if (settingsRaw) {
+          const s = JSON.parse(settingsRaw);
+          if (s.userName) opName = s.userName;
+          if (s.assistantName) astName = s.assistantName;
+          if (s.llmProvider) prov = s.llmProvider;
+        }
+
+        setCurrentUserName(opName);
+        setAssistantName(astName);
+        setCurrentProvider(prov);
       } catch (e) {}
     };
 

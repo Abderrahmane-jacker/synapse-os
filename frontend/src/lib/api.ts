@@ -290,6 +290,11 @@ export const api = {
         body: JSON.stringify(data),
       }),
     getMe: () => fetchApi<{ user: any }>('/api/auth/me'),
+    updateProfile: (data: { user_name?: string; assistant_name?: string }) =>
+      fetchApi<{ status: string; user: any }>('/api/auth/profile', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
     deleteAccount: (data: { password: string }) =>
       fetchApi<{ status: string; message: string }>('/api/auth/delete-account', {
         method: 'POST',

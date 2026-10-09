@@ -366,4 +366,30 @@ class DatabaseManager:
             except Exception as e:
                 logger.warning(f"Failed to update vault_path in sqlite: {e}")
 
+    async def update_user_profile(self, user_id: str, user_name: Optional[str] = None, assistant_name: Optional[str] = None):
+        if self.is_postgres and self.pool:
+            async with self.pool.acquire() as conn:
+                try:
+                    if user_name and assistant_name:
+                        await conn.execute("UPDATE users SET user_name = $1, assistant_name = $2 WHERE id = $3::uuid", user_name, assistant_name, user_id)
+                    elif user_name:
+                        await conn.execute("UPDATE users SET user_name = $1 WHERE id = $2::uuid", user_name, user_id)
+                    elif assistant_name:
+                        await conn.execute("UPDATE users SET assistant_name = $1 WHERE id = $2::uuid", assistant_name, user_id)
+                except Exception as e:
+                    logger.warning(f"Failed to update profile in postgres: {e}")
+            return
+
+        async with aiosqlite.connect(self.sqlite_db_path) as db:
+            try:
+                if user_name and assistant_name:
+                    await db.execute("UPDATE users SET user_name = ?, assistant_name = ? WHERE id = ?", (user_name, assistant_name, user_id))
+                elif user_name:
+                    await db.execute("UPDATE users SET user_name = ? WHERE id = ?", (user_name, user_id))
+                elif assistant_name:
+                    await db.execute("UPDATE users SET assistant_name = ? WHERE id = ?", (assistant_name, user_id))
+                await db.commit()
+            except Exception as e:
+                logger.warning(f"Failed to update profile in sqlite: {e}")
+
 db_manager = DatabaseManager()

@@ -93,6 +93,40 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
         }
     }
 
+class UpdateProfileRequest(BaseModel):
+    user_name: Optional[str] = None
+    assistant_name: Optional[str] = None
+
+@router.put("/profile")
+async def update_profile(req: UpdateProfileRequest, authorization: Optional[str] = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header.")
+
+    token = authorization.split(" ")[1]
+    payload = decode_access_token(token)
+    if not payload or "sub" not in payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token.")
+
+    user = await db_manager.get_user_by_id(payload["sub"])
+    if not user:
+        raise HTTPException(status_code=404, detail="User account not found.")
+
+    await db_manager.update_user_profile(
+        user["id"], 
+        user_name=req.user_name.strip() if req.user_name else None,
+        assistant_name=req.assistant_name.strip() if req.assistant_name else None
+    )
+    updated = await db_manager.get_user_by_id(user["id"])
+    return {
+        "status": "success",
+        "user": {
+            "id": updated["id"],
+            "email": updated["email"],
+            "user_name": updated["user_name"],
+            "assistant_name": updated["assistant_name"]
+        }
+    }
+
 class DeleteAccountRequest(BaseModel):
     password: str
 

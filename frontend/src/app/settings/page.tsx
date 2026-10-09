@@ -172,11 +172,6 @@ const DEFAULT_SETTINGS: NexusSettings = {
 function loadSettings(): NexusSettings {
   if (typeof window === 'undefined') return DEFAULT_SETTINGS;
   try {
-    let activeUser: any = null;
-    const userRaw = localStorage.getItem('nexus_user');
-    if (userRaw) {
-      try { activeUser = JSON.parse(userRaw); } catch (e) {}
-    }
     const raw = localStorage.getItem(SETTINGS_KEY);
     let s = { ...DEFAULT_SETTINGS };
     if (raw) {
@@ -189,14 +184,25 @@ function loadSettings(): NexusSettings {
       s.selectedModel = '';
       s.agentModel = '';
     }
+
+    // Only fallback to activeUser if userName or assistantName is missing in settings
+    let activeUser: any = null;
+    const userRaw = localStorage.getItem('nexus_user');
+    if (userRaw) {
+      try { activeUser = JSON.parse(userRaw); } catch (e) {}
+    }
     if (activeUser) {
       const activeOp = activeUser.user_name || activeUser.email?.split('@')[0] || "OPERATOR";
       const activeAst = activeUser.assistant_name || "Synapse";
-      s.userName = activeOp;
-      s.assistantName = activeAst;
-      if (!s.agentSystemPrompt || s.agentSystemPrompt.includes("Abdo")) {
-        s.agentSystemPrompt = generateSystemPrompt(activeOp, activeAst);
+      if (!s.userName) {
+        s.userName = activeOp;
       }
+      if (!s.assistantName) {
+        s.assistantName = activeAst;
+      }
+    }
+    if (!s.agentSystemPrompt || s.agentSystemPrompt.includes("Abdo")) {
+      s.agentSystemPrompt = generateSystemPrompt(s.userName || "OPERATOR", s.assistantName || "Synapse");
     }
     return s;
   } catch {}
@@ -205,8 +211,23 @@ function loadSettings(): NexusSettings {
 
 function saveSettings(s: NexusSettings) {
   if (typeof window === 'undefined') return;
+  // 1. Save settings
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+
+  // 2. Sync nexus_user so active user state always matches saved settings
+  try {
+    const userRaw = localStorage.getItem('nexus_user');
+    if (userRaw) {
+      const user = JSON.parse(userRaw);
+      user.user_name = s.userName;
+      user.assistant_name = s.assistantName;
+      localStorage.setItem('nexus_user', JSON.stringify(user));
+    }
+  } catch (e) {}
+
+  // 3. Notify all components (Sidebar, headers, etc.)
   window.dispatchEvent(new CustomEvent("nexus_settings_changed", { detail: s }));
+  window.dispatchEvent(new Event("nexus_user_changed"));
   window.dispatchEvent(new Event("storage"));
 }
 
@@ -252,17 +273,47 @@ export default function SettingsPage() {
   }, []);
 
   const commitSettings = async (targetSettings: NexusSettings) => {
-    saveSettings(targetSettings);
+    const updated = {
+      ...targetSettings,
+      agentSystemPrompt: generateSystemPrompt(targetSettings.userName || "OPERATOR", targetSettings.assistantName || "Synapse")
+    };
+    setSettings(updated);
+    saveSettings(updated);
+
     try {
-      if (targetSettings.selectedModel) {
-        await api.system.setActiveModel(targetSettings.selectedModel, targetSettings.llmProvider || 'ollama');
+      await api.system.setup({
+        operator_name: updated.userName,
+        agent_name: updated.assistantName,
+        vault_path: updated.vaultPath,
+        model: updated.selectedModel || undefined,
+        provider: updated.llmProvider || undefined,
+      });
+    } catch (e) {
+      console.warn("Could not sync names with system setup endpoint:", e);
+    }
+
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('nexus_auth_token') : null;
+      if (token && api.auth?.updateProfile) {
+        await api.auth.updateProfile({
+          user_name: updated.userName,
+          assistant_name: updated.assistantName
+        });
+      }
+    } catch (e) {
+      console.warn("Could not sync profile with auth endpoint:", e);
+    }
+
+    try {
+      if (updated.selectedModel) {
+        await api.system.setActiveModel(updated.selectedModel, updated.llmProvider || 'ollama');
       }
     } catch (e) {
       console.error("Failed to sync active model with backend:", e);
     }
     setStatus(prev => prev ? {
       ...prev,
-      model: targetSettings.selectedModel || prev.model
+      model: updated.selectedModel || prev.model
     } : null);
   };
 
