@@ -178,7 +178,8 @@ export function useSpeechRecognition({
         }
       }, 100);
 
-      recorder.start(100);
+      // Record continuous stream so onstop produces a single, compliant WebM container with full headers
+      recorder.start();
       mediaRecorderRef.current = recorder;
       setIsListening(true);
       setErrorMessage(null);

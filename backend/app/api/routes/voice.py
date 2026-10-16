@@ -1,5 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, Query, Response, HTTPException, Header
 from pydantic import BaseModel
+import subprocess
 import edge_tts
 import tempfile
 import os
@@ -31,22 +32,38 @@ async def transcribe_audio(file: UploadFile = File(...)):
     100% Self-Hosted, Private, High-Performance Faster-Whisper Speech-to-Text Endpoint.
     Uses C++ CTranslate2 engine with Voice Activity Detection (VAD) filtering.
     """
+    tmp_path = None
+    wav_path = None
     try:
+        content = await file.read()
+        if not content or len(content) < 1500:
+            return {"text": ""}
+
         suffix = ".wav" if "wav" in (file.content_type or "").lower() else ".webm"
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-            content = await file.read()
             tmp.write(content)
             tmp_path = tmp.name
 
         recognizer = sr.Recognizer()
 
-        # If webm, convert to wav using ffmpeg if installed, else try reading directly
-        wav_path = tmp_path
-        if not tmp_path.endswith(".wav"):
+        # Convert webm/audio to 16kHz mono PCM WAV for accurate decoding
+        if tmp_path.endswith(".wav"):
+            wav_path = tmp_path
+        else:
             converted_wav = tmp_path + ".wav"
-            ret = os.system(f"ffmpeg -y -i '{tmp_path}' -ar 16000 -ac 1 '{converted_wav}' >/dev/null 2>&1")
-            if ret == 0 and os.path.exists(converted_wav):
-                wav_path = converted_wav
+            try:
+                proc = subprocess.run(
+                    ["ffmpeg", "-y", "-i", tmp_path, "-vn", "-ar", "16000", "-ac", "1", "-f", "wav", converted_wav],
+                    capture_output=True,
+                    timeout=10
+                )
+                if proc.returncode == 0 and os.path.exists(converted_wav) and os.path.getsize(converted_wav) > 100:
+                    wav_path = converted_wav
+            except Exception as fe:
+                logger.debug(f"ffmpeg conversion failed: {fe}")
+
+        if not wav_path or not os.path.exists(wav_path):
+            return {"text": ""}
 
         transcribed_text = ""
 
@@ -60,30 +77,33 @@ async def transcribe_audio(file: UploadFile = File(...)):
                     vad_parameters=dict(min_silence_duration_ms=500)
                 )
                 transcribed_text = " ".join([segment.text for segment in segments]).strip()
-                logger.info(f"Self-Hosted Faster-Whisper STT Success: '{transcribed_text}'")
+                if transcribed_text:
+                    logger.info(f"Faster-Whisper STT Success: '{transcribed_text}'")
             except Exception as whisper_err:
-                logger.warning(f"Local Faster-Whisper transcription failed: {whisper_err}")
+                logger.debug(f"Local Faster-Whisper transcription failed: {whisper_err}")
 
         # 2. Fallback: Google Speech Recognition
-        if not transcribed_text:
+        if not transcribed_text and wav_path and os.path.exists(wav_path):
             try:
                 with sr.AudioFile(wav_path) as source:
                     audio_data = recognizer.record(source)
                     transcribed_text = recognizer.recognize_google(audio_data)
-            except sr.UnknownValueError:
+            except Exception:
                 transcribed_text = ""
-            except Exception as err:
-                logger.warning(f"Speech recognition parse error: {err}")
-
-        # Cleanup temporary files
-        if os.path.exists(tmp_path): os.remove(tmp_path)
-        if wav_path != tmp_path and os.path.exists(wav_path): os.remove(wav_path)
 
         return {"text": transcribed_text}
 
     except Exception as e:
-        logger.error(f"Backend transcription error: {e}")
-        return {"text": "", "error": str(e)}
+        logger.debug(f"Transcription error: {e}")
+        return {"text": ""}
+
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try: os.remove(tmp_path)
+            except Exception: pass
+        if wav_path and wav_path != tmp_path and os.path.exists(wav_path):
+            try: os.remove(wav_path)
+            except Exception: pass
 
 @router.get("/tts")
 async def get_text_to_speech(
