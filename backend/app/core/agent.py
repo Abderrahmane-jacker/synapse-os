@@ -15,7 +15,7 @@ class NexusAgent:
         image: str = None, 
         model: str = None, 
         system_prompt: str = None,
-        provider: str = "ollama",
+        provider: str = None,
         api_key: str = None,
         ollama_host: str = None,
         omniroute_host: str = None,

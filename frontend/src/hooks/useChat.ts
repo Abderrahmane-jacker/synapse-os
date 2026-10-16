@@ -158,12 +158,19 @@ export function useChat() {
                   .replace(/\b(synapse|3awa)\b/gi, currentAst);
               }
 
-              if (settings.llmProvider) payload.provider = settings.llmProvider;
-              if (settings.llmProvider === 'gemini') payload.api_key = settings.geminiApiKey;
-              else if (settings.llmProvider === 'anthropic') payload.api_key = settings.anthropicApiKey;
-              else if (settings.llmProvider === 'openai') payload.api_key = settings.openaiApiKey;
-              else if (settings.llmProvider === 'openrouter') payload.api_key = settings.openrouterApiKey;
-              else if (settings.llmProvider === 'omniroute') {
+              if (payload.model && (payload.model.startsWith('auto/') || payload.model === 'auto/best-coding')) {
+                payload.provider = 'omniroute';
+              } else if (settings.llmProvider) {
+                payload.provider = settings.llmProvider;
+              } else {
+                payload.provider = 'omniroute';
+              }
+
+              if (payload.provider === 'gemini') payload.api_key = settings.geminiApiKey;
+              else if (payload.provider === 'anthropic') payload.api_key = settings.anthropicApiKey;
+              else if (payload.provider === 'openai') payload.api_key = settings.openaiApiKey;
+              else if (payload.provider === 'openrouter') payload.api_key = settings.openrouterApiKey;
+              else if (payload.provider === 'omniroute') {
                 payload.api_key = settings.omnirouteApiKey;
                 payload.omniroute_host = settings.omnirouteHostUrl || 'http://localhost:20128';
               }

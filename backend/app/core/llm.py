@@ -32,7 +32,9 @@ class LLMClient:
     @classmethod
     def resolve_model(cls, model: Optional[str], provider: str) -> str:
         clean = (model or "").strip()
-        provider = (provider or "omniroute").lower()
+        provider = (provider or settings.LLM_PROVIDER or "omniroute").lower()
+        if clean and (clean.startswith("auto/") or clean in ["best-coding", "best-reasoning", "best-fast", "best-chat", "best-vision"]):
+            provider = "omniroute"
 
         # If user explicitly provided a model that isn't legacy hardcoded default or "auto"
         if clean and clean.lower() not in ["auto", "default", "deepseek-r1:8b", "none"]:
@@ -72,14 +74,23 @@ class LLMClient:
         self, 
         messages: list, 
         model: str = None, 
-        provider: str = "ollama", 
+        provider: str = None, 
         api_key: str = None, 
         ollama_host: str = None,
         omniroute_host: str = None,
         stream: bool = True
     ) -> AsyncGenerator[str, None]:
-        provider = (provider or "ollama").lower()
-        model = self.resolve_model(model, provider)
+        prov = (provider or "").strip().lower()
+        clean_model = (model or "").strip()
+
+        # If model is an OmniRoute auto route or provider is not specified, route accordingly
+        if clean_model and (clean_model.startswith("auto/") or clean_model == "auto/best-coding"):
+            prov = "omniroute"
+        elif not prov:
+            prov = (settings.LLM_PROVIDER or "omniroute").lower()
+
+        provider = prov
+        model = self.resolve_model(clean_model, provider)
 
         try:
             if provider == "gemini":
