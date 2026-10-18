@@ -78,8 +78,8 @@ export default function DashboardPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [assistantName, setAssistantName] = useState("Synapse");
   const [userName, setUserName] = useState("OPERATOR");
-  const [selectedModel, setSelectedModel] = useState("");
-  const [llmProvider, setLlmProvider] = useState("omniroute");
+  const [selectedModel, setSelectedModel] = useState("gemma4:31b-cloud");
+  const [llmProvider, setLlmProvider] = useState("ollama");
   const [isVaultInitOpen, setIsVaultInitOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -121,7 +121,9 @@ export default function DashboardPage() {
         try {
           const parsed = JSON.parse(settingsRaw);
           if (parsed.selectedModel) setSelectedModel(parsed.selectedModel);
+          else setSelectedModel("gemma4:31b-cloud");
           if (parsed.llmProvider) setLlmProvider(parsed.llmProvider);
+          else setLlmProvider("ollama");
         } catch (e) {}
       }
     };

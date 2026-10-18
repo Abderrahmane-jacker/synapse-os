@@ -145,11 +145,13 @@ export function useChat() {
             try {
               const settings = JSON.parse(settingsStr);
               if (settings.selectedModel && settings.selectedModel !== 'deepseek-r1:8b') {
-                payload.model = settings.selectedModel.toLowerCase() === 'auto' ? 'auto/best-coding' : settings.selectedModel;
+                payload.model = settings.selectedModel.toLowerCase() === 'auto' ? 'gemma4:31b-cloud' : settings.selectedModel;
               } else if (settings.agentModel && settings.agentModel !== 'deepseek-r1:8b') {
                 payload.model = settings.agentModel;
               } else if (settings.llmProvider === 'omniroute') {
                 payload.model = 'auto/best-coding';
+              } else {
+                payload.model = 'gemma4:31b-cloud';
               }
 
               if (settings.agentSystemPrompt) {
@@ -163,7 +165,7 @@ export function useChat() {
               } else if (settings.llmProvider) {
                 payload.provider = settings.llmProvider;
               } else {
-                payload.provider = 'omniroute';
+                payload.provider = 'ollama';
               }
 
               if (payload.provider === 'gemini') payload.api_key = settings.geminiApiKey;
@@ -179,6 +181,8 @@ export function useChat() {
               if (settings.omnirouteHostUrl) payload.omniroute_host = settings.omnirouteHostUrl;
             } catch (e) {}
           }
+          if (!payload.model) payload.model = 'gemma4:31b-cloud';
+          if (!payload.provider) payload.provider = 'ollama';
          
          sent = wsClient.send(payload);
       }

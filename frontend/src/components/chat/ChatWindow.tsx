@@ -50,7 +50,7 @@ export default function ChatWindow({ messages, isLoading, onPromptClick }: ChatW
     {
       title: "AGENT // EXECUTION RUNTIME",
       description: "Launch autonomous agent with terminal sandbox and tool calling.",
-      prompt: "claude --model deepseek-r1:8b --agent synapse",
+      prompt: "claude --model gemma4:31b-cloud --agent synapse",
       icon: Database
     }
   ];

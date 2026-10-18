@@ -42,8 +42,8 @@ export default function Home() {
 
   const [assistantName, setAssistantName] = useState("Synapse");
   const [userName, setUserName] = useState("OPERATOR");
-  const [activeModel, setActiveModel] = useState<string>("");
-  const [activeProvider, setActiveProvider] = useState<string>("omniroute");
+  const [activeModel, setActiveModel] = useState<string>("gemma4:31b-cloud");
+  const [activeProvider, setActiveProvider] = useState<string>("ollama");
 
   // Check setup state on load
   useEffect(() => {
@@ -63,8 +63,8 @@ export default function Home() {
       if (settingsRaw) {
         try {
           const parsed = JSON.parse(settingsRaw);
-          if (parsed.selectedModel !== undefined) setActiveModel(parsed.selectedModel);
-          if (parsed.llmProvider !== undefined) setActiveProvider(parsed.llmProvider);
+          if (parsed.selectedModel !== undefined) setActiveModel(parsed.selectedModel || "gemma4:31b-cloud");
+          if (parsed.llmProvider !== undefined) setActiveProvider(parsed.llmProvider || "ollama");
           if (parsed.assistantName) setAssistantName(parsed.assistantName);
           if (parsed.userName) setUserName(parsed.userName);
           if (parsed.vaultPath) {

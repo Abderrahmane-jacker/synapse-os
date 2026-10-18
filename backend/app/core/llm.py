@@ -32,12 +32,12 @@ class LLMClient:
     @classmethod
     def resolve_model(cls, model: Optional[str], provider: str) -> str:
         clean = (model or "").strip()
-        provider = (provider or settings.LLM_PROVIDER or "omniroute").lower()
+        provider = (provider or settings.LLM_PROVIDER or "ollama").lower()
         if clean and (clean.startswith("auto/") or clean in ["best-coding", "best-reasoning", "best-fast", "best-chat", "best-vision"]):
             provider = "omniroute"
 
         # If user explicitly provided a model that isn't legacy hardcoded default or "auto"
-        if clean and clean.lower() not in ["auto", "default", "deepseek-r1:8b", "none"]:
+        if clean and clean.lower() not in ["auto", "default", "none"]:
             if provider == "omniroute":
                 low = clean.lower()
                 if low in ["best-coding", "coding"]:
@@ -68,7 +68,7 @@ class LLMClient:
         else: # ollama
             if clean and clean.lower() not in ["auto", "default"]:
                 return clean
-            return "deepseek-r1:8b"
+            return settings.DEFAULT_LLM_MODEL or "gemma4:31b-cloud"
 
     async def chat(
         self, 
@@ -87,7 +87,7 @@ class LLMClient:
         if clean_model and (clean_model.startswith("auto/") or clean_model == "auto/best-coding"):
             prov = "omniroute"
         elif not prov:
-            prov = (settings.LLM_PROVIDER or "omniroute").lower()
+            prov = (settings.LLM_PROVIDER or "ollama").lower()
 
         provider = prov
         model = self.resolve_model(clean_model, provider)

@@ -87,11 +87,13 @@ export const api = {
         try {
           const settings = JSON.parse(settingsStr);
           if (settings.selectedModel && settings.selectedModel !== 'deepseek-r1:8b') {
-            body.model = settings.selectedModel.toLowerCase() === 'auto' ? 'auto/best-coding' : settings.selectedModel;
+            body.model = settings.selectedModel.toLowerCase() === 'auto' ? 'gemma4:31b-cloud' : settings.selectedModel;
           } else if (settings.agentModel && settings.agentModel !== 'deepseek-r1:8b') {
             body.model = settings.agentModel;
           } else if (settings.llmProvider === 'omniroute') {
             body.model = 'auto/best-coding';
+          } else {
+            body.model = 'gemma4:31b-cloud';
           }
 
           if (settings.agentSystemPrompt) {
@@ -100,7 +102,14 @@ export const api = {
               .replace(/\b(synapse|3awa)\b/gi, currentAst);
           }
 
-          if (settings.llmProvider) body.provider = settings.llmProvider;
+          if (body.model && (body.model.startsWith('auto/') || body.model === 'auto/best-coding')) {
+            body.provider = 'omniroute';
+          } else if (settings.llmProvider) {
+            body.provider = settings.llmProvider;
+          } else {
+            body.provider = 'ollama';
+          }
+
           if (settings.llmProvider === 'gemini') body.api_key = settings.geminiApiKey;
           else if (settings.llmProvider === 'anthropic') body.api_key = settings.anthropicApiKey;
           else if (settings.llmProvider === 'openai') body.api_key = settings.openaiApiKey;
@@ -114,6 +123,8 @@ export const api = {
           if (settings.omnirouteHostUrl) body.omniroute_host = settings.omnirouteHostUrl;
         } catch (e) {}
       }
+      if (!body.model) body.model = 'gemma4:31b-cloud';
+      if (!body.provider) body.provider = 'ollama';
       const data = await fetchApi<any>('/api/chat', {
         method: 'POST',
         body: JSON.stringify(body),

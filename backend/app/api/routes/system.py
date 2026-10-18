@@ -45,7 +45,9 @@ class ActiveModelRequest(BaseModel):
 @router.post("/model/active")
 async def set_active_model(req: ActiveModelRequest):
     settings.DEFAULT_LLM_MODEL = req.model.strip()
-    return {"status": "success", "active_model": settings.DEFAULT_LLM_MODEL, "provider": req.provider}
+    if req.provider:
+        settings.LLM_PROVIDER = req.provider.strip().lower()
+    return {"status": "success", "active_model": settings.DEFAULT_LLM_MODEL, "provider": settings.LLM_PROVIDER}
 
 @router.get("/status")
 async def system_status(x_vault_path: str = Header(None)):
@@ -246,7 +248,7 @@ async def setup_system(req: SystemSetupRequest):
         "vault_path": settings.OBSIDIAN_VAULT_PATH,
         "note_count": note_count,
         "model": settings.DEFAULT_LLM_MODEL,
-        "provider": getattr(settings, "LLM_PROVIDER", "omniroute"),
+        "provider": getattr(settings, "LLM_PROVIDER", "ollama"),
         "operator_name": getattr(settings, "OPERATOR_NAME", "Operator"),
         "agent_name": getattr(settings, "AGENT_NAME", "Synapse"),
         "message": f"System configured successfully. Vault: {settings.OBSIDIAN_VAULT_PATH} ({note_count} notes)."
@@ -268,7 +270,7 @@ async def get_setup_status():
         "vault_path": settings.OBSIDIAN_VAULT_PATH or "./vault",
         "note_count": note_count,
         "default_model": settings.DEFAULT_LLM_MODEL,
-        "provider": getattr(settings, "LLM_PROVIDER", "omniroute"),
+        "provider": getattr(settings, "LLM_PROVIDER", "ollama"),
         "operator_name": getattr(settings, "OPERATOR_NAME", "Operator"),
         "agent_name": getattr(settings, "AGENT_NAME", "Synapse"),
         "omniroute_url": getattr(settings, "OMNIROUTE_BASE_URL", "http://localhost:20128")

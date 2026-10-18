@@ -21,7 +21,7 @@ export default function DirectorySelectorModal({ onClose, onLaunch }: DirectoryS
   const settings = getSavedSettings();
   
   const [cwd, setCwd] = useState<string>(() => settings.vaultPath || '');
-  const [model, setModel] = useState<string>(() => settings.selectedModel || '');
+  const [model, setModel] = useState<string>(() => settings.selectedModel || 'gemma4:31b-cloud');
   const [agent, setAgent] = useState<string>('synapse');
 
   const buildCommand = () => {

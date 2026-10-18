@@ -23,7 +23,7 @@ export default function SetupWizard({
 }: SetupWizardProps) {
   const [operatorName, setOperatorName] = useState("Operator");
   const [agentName, setAgentName] = useState("Synapse");
-  const [provider, setProvider] = useState<"omniroute" | "ollama" | "anthropic" | "gemini" | "openai" | "openrouter">("omniroute");
+  const [provider, setProvider] = useState<"omniroute" | "ollama" | "anthropic" | "gemini" | "openai" | "openrouter">("ollama");
   const [apiToken, setApiToken] = useState("");
   const [showToken, setShowToken] = useState(false);
   const [omnirouteHost, setOmnirouteHost] = useState("http://localhost:20128");
@@ -111,7 +111,7 @@ export default function SetupWizard({
     try {
       await api.system.setup({
         vault_path: finalVault,
-        model: provider === "omniroute" ? "auto/best-coding" : "",
+        model: provider === "ollama" ? "gemma4:31b-cloud" : (provider === "omniroute" ? "auto/best-coding" : ""),
         provider: provider,
         operator_name: op,
         agent_name: ast,
@@ -136,8 +136,8 @@ export default function SetupWizard({
       userName: op,
       assistantName: ast,
       llmProvider: provider,
-      selectedModel: provider === "omniroute" ? "auto/best-coding" : (existingSettings.selectedModel || ""),
-      agentModel: provider === "omniroute" ? "auto/best-coding" : (existingSettings.agentModel || ""),
+      selectedModel: existingSettings.selectedModel || (provider === "ollama" ? "gemma4:31b-cloud" : (provider === "omniroute" ? "auto/best-coding" : "")),
+      agentModel: existingSettings.agentModel || (provider === "ollama" ? "gemma4:31b-cloud" : (provider === "omniroute" ? "auto/best-coding" : "")),
       vaultPath: finalVault,
       omnirouteApiKey: provider === "omniroute" ? token : (existingSettings.omnirouteApiKey || ""),
       omnirouteHostUrl: omnirouteHost.trim() || "http://localhost:20128",

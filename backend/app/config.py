@@ -10,8 +10,8 @@ class Settings(BaseSettings):
     DATABASE_BACKEND: str = "auto" # 'postgres', 'sqlite', or 'auto'
     DEFAULT_TENANT_ID: str = "00000000-0000-0000-0000-000000000001"
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
-    DEFAULT_LLM_MODEL: str = "auto/best-coding"
-    LLM_PROVIDER: str = "omniroute"
+    DEFAULT_LLM_MODEL: str = "gemma4:31b-cloud"
+    LLM_PROVIDER: str = "ollama"
     OMNIROUTE_BASE_URL: str = "http://localhost:20128"
     OPERATOR_NAME: str = "Operator"
     AGENT_NAME: str = "Synapse"

@@ -101,7 +101,7 @@ export default function InputBar({ onSend, isLoading }: InputBarProps) {
         alignItems: 'center'
       }}>
         <button
-          onClick={() => insertQuickCmd('claude --model deepseek-r1:8b --agent synapse ')}
+          onClick={() => insertQuickCmd('claude --model gemma4:31b-cloud --agent synapse ')}
           style={{
             fontSize: '0.72rem',
             fontFamily: 'var(--font-mono)',

@@ -25,7 +25,7 @@
    # Point to your local Obsidian notes directory on your host machine
    LOCAL_VAULT_PATH=/home/username/Documents/ObsidianVault
    OLLAMA_BASE_URL=http://host.docker.internal:11434
-   DEFAULT_LLM_MODEL=deepseek-r1:8b
+   DEFAULT_LLM_MODEL=gemma4:31b-cloud
    ```
 
 3. **Start SynapseOS**:

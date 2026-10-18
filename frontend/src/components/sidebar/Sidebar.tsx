@@ -40,7 +40,7 @@ export default function Sidebar({
 
   const [assistantName, setAssistantName] = useState<string>('Synapse');
   const [currentUserName, setCurrentUserName] = useState<string>('OPERATOR');
-  const [currentProvider, setCurrentProvider] = useState<string>('omniroute');
+  const [currentProvider, setCurrentProvider] = useState<string>('ollama');
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
@@ -51,7 +51,7 @@ export default function Sidebar({
         const settingsRaw = localStorage.getItem('nexus_settings');
         let opName = 'OPERATOR';
         let astName = 'Synapse';
-        let prov = 'omniroute';
+        let prov = 'ollama';
 
         if (userRaw) {
           const user = JSON.parse(userRaw);
@@ -422,7 +422,7 @@ export default function Sidebar({
                 padding: '2px 6px',
                 fontWeight: 800
               }}>
-                {(currentProvider || 'OMNIROUTE').toUpperCase()}
+                {(currentProvider || 'OLLAMA').toUpperCase()}
               </span>
             </div>
 

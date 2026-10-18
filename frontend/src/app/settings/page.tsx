@@ -153,13 +153,13 @@ const DEFAULT_SETTINGS: NexusSettings = {
   accentColor: "#D0FF14",
   fontSize: "medium",
   typewriterSpeed: 15,
-  selectedModel: "auto/best-coding",
+  selectedModel: "gemma4:31b-cloud",
   vaultPath: "/vault",
-  agentModel: "",
+  agentModel: "gemma4:31b-cloud",
   agentSystemPrompt: generateSystemPrompt(),
   githubRepoUrl: "",
   githubToken: "",
-  llmProvider: "omniroute",
+  llmProvider: "ollama",
   anthropicApiKey: "",
   openaiApiKey: "",
   geminiApiKey: "",
@@ -180,9 +180,13 @@ function loadSettings(): NexusSettings {
     if (s.ttsAutoSpeak === undefined) {
       s.ttsAutoSpeak = true;
     }
-    if (s.selectedModel === 'gemma4:31b-cloud' || s.selectedModel === 'deepseek-r1:8b') {
-      s.selectedModel = '';
-      s.agentModel = '';
+    // Automatically migrate legacy deepseek or empty default to gemma4:31b-cloud
+    if (!s.selectedModel || s.selectedModel === 'deepseek-r1:8b') {
+      s.selectedModel = 'gemma4:31b-cloud';
+      s.agentModel = 'gemma4:31b-cloud';
+    }
+    if (!s.llmProvider) {
+      s.llmProvider = 'ollama';
     }
 
     // Only fallback to activeUser if userName or assistantName is missing in settings
@@ -734,7 +738,7 @@ export default function SettingsPage() {
                     <div style={{ fontSize: '0.74rem', color: '#52525B', marginTop: '4px' }}>
                       {settings.llmProvider === 'omniroute' 
                         ? "For OmniRoute, use dynamic auto routing (e.g. auto/best-coding, auto/best-reasoning, auto/best-fast, or 'auto')."
-                        : "Type the exact model identifier for your selected provider (e.g. claude-sonnet-5-5, gpt-4o, deepseek-r1:8b)."}
+                        : "Type the exact model identifier for your selected provider (e.g. gemma4:31b-cloud, claude-3-7-sonnet, gpt-4o)."}
                     </div>
                   </div>
                 </div>
@@ -754,7 +758,7 @@ export default function SettingsPage() {
                     </div>
                     <div style={{ color: '#A1A1AA' }}>Model:</div>
                     <div style={{ color: '#FFFFFF' }}>
-                      {settings.selectedModel || (settings.llmProvider === 'omniroute' ? 'auto/best-coding (DYNAMIC AUTO)' : 'NOT CONFIGURED')}
+                      {settings.selectedModel || (settings.llmProvider === 'omniroute' ? 'auto/best-coding (DYNAMIC AUTO)' : 'gemma4:31b-cloud')}
                     </div>
                     <div style={{ color: '#A1A1AA' }}>Security:</div>
                     <div style={{ color: '#D0FF14', fontWeight: 700 }}>
