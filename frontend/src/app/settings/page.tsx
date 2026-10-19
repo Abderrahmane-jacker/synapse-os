@@ -511,6 +511,45 @@ export default function SettingsPage() {
                     Your custom operator name for TTS vocal prompts and AI agent system instructions.
                   </div>
                 </div>
+
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label style={{ fontSize: '0.76rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0F0F0F' }}>
+                      ASSISTANT_PERSONALITY // SYSTEM_PROMPT
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => updateSetting('agentSystemPrompt', generateSystemPrompt(settings.userName || "OPERATOR", settings.assistantName || "Synapse"))}
+                      style={{
+                        background: '#F4F4F5',
+                        border: '1px solid #0F0F0F',
+                        fontSize: '0.68rem',
+                        fontFamily: 'var(--font-mono)',
+                        padding: '2px 8px',
+                        cursor: 'pointer',
+                        fontWeight: 700
+                      }}
+                      title="Reset prompt back to standard 3awa cybersecurity operator persona"
+                    >
+                      ↺ RESET TO DEFAULT PERSONA
+                    </button>
+                  </div>
+                  <textarea
+                    rows={8}
+                    value={settings.agentSystemPrompt ?? ""}
+                    onChange={e => updateSetting('agentSystemPrompt', e.target.value)}
+                    placeholder="Enter custom persona or system prompt..."
+                    style={{
+                      ...inputStyle,
+                      resize: 'vertical',
+                      lineHeight: '1.45',
+                      fontSize: '0.78rem'
+                    }}
+                  />
+                  <div style={{ fontSize: '0.74rem', color: '#52525B', marginTop: '4px' }}>
+                    Defines the core personality, behavioral rules, voice briefing tone, and operational posture of your AI.
+                  </div>
+                </div>
               </div>
             </div>
 
