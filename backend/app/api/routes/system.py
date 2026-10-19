@@ -43,6 +43,7 @@ class ActiveModelRequest(BaseModel):
     provider: Optional[str] = "ollama"
 
 @router.post("/model/active")
+@router.post("/model")
 async def set_active_model(req: ActiveModelRequest):
     settings.DEFAULT_LLM_MODEL = req.model.strip()
     if req.provider:
