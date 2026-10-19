@@ -58,11 +58,18 @@ else
 fi
 
 # 3. Check Backend Venv
-if [ ! -d "$BACKEND_DIR/venv" ]; then
-    echo "[+] Creating virtual environment at $BACKEND_DIR/venv..."
-    python3 -m venv "$BACKEND_DIR/venv"
-    "$BACKEND_DIR/venv/bin/pip" install --upgrade pip
-    "$BACKEND_DIR/venv/bin/pip" install -r "$BACKEND_DIR/requirements.txt"
+if [ ! -f "$BACKEND_DIR/venv/bin/uvicorn" ]; then
+    echo "[+] Setting up backend virtual environment at $BACKEND_DIR/venv..."
+    rm -rf "$BACKEND_DIR/venv"
+    if command -v uv > /dev/null 2>&1; then
+        echo "[+] Using uv for fast Python environment setup..."
+        uv venv --python 3.11 "$BACKEND_DIR/venv" || uv venv "$BACKEND_DIR/venv"
+        uv pip install -r "$BACKEND_DIR/requirements.txt" --python "$BACKEND_DIR/venv/bin/python"
+    else
+        python3 -m venv "$BACKEND_DIR/venv"
+        "$BACKEND_DIR/venv/bin/pip" install --upgrade pip
+        "$BACKEND_DIR/venv/bin/pip" install -r "$BACKEND_DIR/requirements.txt"
+    fi
 fi
 
 # 4. Check Frontend Dependencies
@@ -75,6 +82,14 @@ fi
 echo "[+] Starting Backend on http://localhost:8000..."
 PYTHONPATH="$BACKEND_DIR" "$BACKEND_DIR/venv/bin/uvicorn" app.main:app --host 0.0.0.0 --port 8000 --app-dir "$BACKEND_DIR" --reload &
 BACKEND_PID=$!
+
+# Quick health check: verify backend process didn't die immediately
+sleep 2
+if ! kill -0 $BACKEND_PID 2>/dev/null; then
+    echo "[!] ERROR: Backend failed to start on port 8000! Check backend logs above."
+    kill $BACKEND_PID 2>/dev/null || true
+    exit 1
+fi
 
 # 6. Start Frontend
 FRONTEND_PORT=3000
