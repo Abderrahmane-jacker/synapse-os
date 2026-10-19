@@ -10,6 +10,29 @@ import re
 
 router = APIRouter()
 
+EXCLUDED_DIR_NAMES = {
+    ".git", ".obsidian", ".trash", "node_modules", "venv", ".venv",
+    ".cache", ".local", "dist", "build", "__pycache__", "proc", "sys", "dev",
+    "bin", "sbin", "boot", "run", "var", "tmp"
+}
+
+def count_md_notes_shallow(dir_path: str, max_depth: int = 2) -> tuple[int, bool]:
+    """Fast, bounded markdown scanner that avoids freezing the event loop on massive disk trees."""
+    has_obsidian = os.path.exists(os.path.join(dir_path, ".obsidian"))
+    md_count = 0
+    try:
+        for root, dirs, files in os.walk(dir_path):
+            dirs[:] = [d for d in dirs if d not in EXCLUDED_DIR_NAMES and not d.startswith(".")]
+            rel_depth = root[len(dir_path):].count(os.sep)
+            if rel_depth >= max_depth:
+                dirs.clear()
+            for f in files:
+                if f.endswith(".md"):
+                    md_count += 1
+    except Exception:
+        pass
+    return md_count, (has_obsidian or md_count > 0)
+
 @router.get("/detect-vaults")
 async def detect_vaults():
     """Detect candidate Obsidian vaults on the host / container system."""
@@ -28,15 +51,13 @@ async def detect_vaults():
             continue
         seen.add(p)
         if os.path.exists(p) and os.path.isdir(p):
-            try:
-                md_count = sum(len([f for f in files if f.endswith(".md")]) for _, _, files in os.walk(p))
+            md_count, is_vault = count_md_notes_shallow(p, max_depth=3)
+            if is_vault or md_count > 0:
                 detected.append({
                     "path": p,
                     "name": item["name"],
                     "note_count": md_count
                 })
-            except Exception:
-                pass
     return {"vaults": detected}
 
 @router.get("/browse-folders")
@@ -61,30 +82,22 @@ async def browse_folders(path: Optional[str] = None):
     abs_path = os.path.abspath(target)
     parent_path = os.path.dirname(abs_path) if abs_path != "/" else None
 
-    current_notes = 0
-    try:
-        current_notes = sum(len([f for f in files if f.endswith(".md")]) for _, _, files in os.walk(abs_path))
-    except Exception:
-        pass
+    current_notes, is_vault = count_md_notes_shallow(abs_path, max_depth=2)
 
     subdirs = []
     try:
         entries = sorted(os.listdir(abs_path))
         for entry in entries:
-            if entry.startswith(".") or entry in ["node_modules", "__pycache__", "proc", "sys", "dev", "bin", "sbin", "boot"]:
+            if entry.startswith(".") or entry in EXCLUDED_DIR_NAMES:
                 continue
             child_path = os.path.join(abs_path, entry)
             if os.path.isdir(child_path):
-                child_notes = 0
-                try:
-                    child_notes = sum(len([f for f in files if f.endswith(".md")]) for _, _, files in os.walk(child_path))
-                except Exception:
-                    pass
+                child_notes, child_is_vault = count_md_notes_shallow(child_path, max_depth=1)
                 subdirs.append({
                     "name": entry,
                     "path": child_path,
                     "note_count": child_notes,
-                    "is_vault": child_notes > 0
+                    "is_vault": child_is_vault
                 })
     except Exception:
         pass
@@ -100,7 +113,7 @@ async def browse_folders(path: Optional[str] = None):
         "parent_path": parent_path,
         "name": os.path.basename(abs_path) or abs_path,
         "note_count": current_notes,
-        "is_vault": current_notes > 0,
+        "is_vault": is_vault,
         "shortcuts": [s for s in shortcuts if s["exists"]],
         "directories": subdirs
     }
