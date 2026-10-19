@@ -1,5 +1,14 @@
 function getWsUrl(): string {
   if (typeof window !== 'undefined') {
+    try {
+      const saved = localStorage.getItem('nexus_settings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.backendUrl) {
+          return parsed.backendUrl.replace(/^http/, 'ws') + '/api/chat/stream';
+        }
+      }
+    } catch (e) {}
     if (process.env.NEXT_PUBLIC_API_URL) {
       return process.env.NEXT_PUBLIC_API_URL.replace(/^http/, 'ws') + '/api/chat/stream';
     }
@@ -56,7 +65,7 @@ export class WSClient {
       };
       
       this.ws.onerror = (err) => {
-        console.error('WS Error:', err);
+        console.warn(`[Synapse WS] Connection failed to ${targetUrl}. FastAPI backend on port 8000 might be offline.`);
       };
     } catch (e) {
       console.error('WS connect error:', e);
@@ -86,14 +95,9 @@ export class WSClient {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(data));
       return true;
-    } else if (this.ws?.readyState === WebSocket.CONNECTING) {
-      this.pendingQueue.push(data);
-      return true;
-    } else {
-      this.connect();
-      this.pendingQueue.push(data);
-      return false;
     }
+    this.connect();
+    return false;
   }
   
   close() {
