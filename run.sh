@@ -79,16 +79,21 @@ if [ ! -d "$FRONTEND_DIR/node_modules" ]; then
 fi
 
 # 5. Start Backend
-echo "[+] Starting Backend on http://localhost:8000..."
-PYTHONPATH="$BACKEND_DIR" "$BACKEND_DIR/venv/bin/uvicorn" app.main:app --host 0.0.0.0 --port 8000 --app-dir "$BACKEND_DIR" --reload &
-BACKEND_PID=$!
+BACKEND_PID=""
+if curl -s http://localhost:8000/api/system/status > /dev/null 2>&1; then
+    echo "[✓] Backend is already running on http://localhost:8000."
+else
+    echo "[+] Starting Backend on http://localhost:8000..."
+    PYTHONPATH="$BACKEND_DIR" "$BACKEND_DIR/venv/bin/uvicorn" app.main:app --host 0.0.0.0 --port 8000 --app-dir "$BACKEND_DIR" --reload &
+    BACKEND_PID=$!
 
-# Quick health check: verify backend process didn't die immediately
-sleep 2
-if ! kill -0 $BACKEND_PID 2>/dev/null; then
-    echo "[!] ERROR: Backend failed to start on port 8000! Check backend logs above."
-    kill $BACKEND_PID 2>/dev/null || true
-    exit 1
+    # Quick health check: verify backend process didn't die immediately
+    sleep 2
+    if ! kill -0 $BACKEND_PID 2>/dev/null; then
+        echo "[!] ERROR: Backend failed to start on port 8000! Check backend logs above."
+        kill $BACKEND_PID 2>/dev/null || true
+        exit 1
+    fi
 fi
 
 # 6. Start Frontend
@@ -106,9 +111,11 @@ FRONTEND_PID=$!
 cleanup() {
     echo ""
     echo "[*] Shutting down services..."
-    kill $BACKEND_PID 2>/dev/null || true
+    if [ -n "$BACKEND_PID" ]; then
+        kill $BACKEND_PID 2>/dev/null || true
+        wait $BACKEND_PID 2>/dev/null || true
+    fi
     kill $FRONTEND_PID 2>/dev/null || true
-    wait $BACKEND_PID 2>/dev/null || true
     wait $FRONTEND_PID 2>/dev/null || true
     echo "[*] Services stopped."
 }
