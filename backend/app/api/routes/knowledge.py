@@ -13,7 +13,8 @@ router = APIRouter()
 EXCLUDED_DIR_NAMES = {
     ".git", ".obsidian", ".trash", "node_modules", "venv", ".venv",
     ".cache", ".local", "dist", "build", "__pycache__", "proc", "sys", "dev",
-    "bin", "sbin", "boot", "run", "var", "tmp"
+    "bin", "sbin", "boot", "run", "var", "tmp", "usr", "etc", "lib", "lib64",
+    "lost+found", "mnt", "opt", "root", "srv"
 }
 
 def count_md_notes_shallow(dir_path: str, max_depth: int = 2) -> tuple[int, bool]:
@@ -103,9 +104,10 @@ async def browse_folders(path: Optional[str] = None):
         pass
 
     shortcuts = [
-        {"name": "Docker Vault (/vault)", "path": "/vault", "exists": os.path.exists("/vault")},
         {"name": "Home Documents", "path": os.path.expanduser("~/Documents"), "exists": os.path.exists(os.path.expanduser("~/Documents"))},
-        {"name": "Root (/)", "path": "/", "exists": True}
+        {"name": "Home (~)", "path": os.path.expanduser("~"), "exists": os.path.exists(os.path.expanduser("~"))},
+        {"name": "Obsidian Vaults", "path": os.path.expanduser("~/Documents/Obsidian"), "exists": os.path.exists(os.path.expanduser("~/Documents/Obsidian"))},
+        {"name": "Docker Vault (/vault)", "path": "/vault", "exists": os.path.exists("/vault")}
     ]
 
     return {
@@ -146,14 +148,29 @@ async def validate_vault_path_endpoint(body: dict):
 
     try:
         safe_path = validate_vault_path(target)
-        notes = obsidian_parser.scan_vault(safe_path)
-        display_name = os.path.basename(raw_path.rstrip("/")) or "Obsidian Vault"
+        if not safe_path:
+            return {
+                "valid": False,
+                "resolved_path": raw_path,
+                "note_count": 0,
+                "message": f"Path '{raw_path}' is invalid or access is denied."
+            }
+
+        md_count, is_vault = count_md_notes_shallow(safe_path, max_depth=3)
+        display_name = os.path.basename(safe_path.rstrip("/")) or "Obsidian Vault"
         return {
             "valid": True,
-            "resolved_path": raw_path,
-            "note_count": len(notes),
+            "resolved_path": safe_path,
+            "note_count": md_count,
             "name": display_name,
-            "message": f"Valid Obsidian Vault ({len(notes)} markdown notes found)"
+            "message": f"Valid Obsidian Vault ({md_count} markdown notes found)" if md_count > 0 else "Directory verified (0 markdown notes found)"
+        }
+    except HTTPException as e:
+        return {
+            "valid": False,
+            "resolved_path": raw_path,
+            "note_count": 0,
+            "message": e.detail
         }
     except Exception as e:
         return {

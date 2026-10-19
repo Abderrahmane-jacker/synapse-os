@@ -4,7 +4,7 @@ from app.config import settings
 
 # Blacklist of critical system directories to reject completely
 SYSTEM_BLACKLIST = [
-    "/etc", "/bin", "/sbin", "/usr/bin", "/usr/sbin",
+    "/etc", "/bin", "/sbin", "/usr", "/usr/bin", "/usr/sbin",
     "/var", "/sys", "/proc", "/dev", "/boot", "/root"
 ]
 
@@ -12,7 +12,7 @@ def validate_vault_path(path_str: str = None) -> str:
     """
     Validates and sanitizes the vault path provided via headers or settings.
     If no valid directory path is explicitly specified, falls back to settings or ./vault.
-    Prevents path traversal into system-critical directories.
+    Prevents path traversal into system-critical directories and rejects root '/'.
     """
     raw = (path_str or "").strip()
     if not raw or raw.lower() in ("demo", "null", "undefined", "none"):
@@ -46,6 +46,10 @@ def validate_vault_path(path_str: str = None) -> str:
         return ""
 
     abs_path = os.path.abspath(target)
+
+    # Rejection of root filesystem
+    if abs_path == "/":
+        raise HTTPException(status_code=400, detail="The root filesystem ('/') cannot be used as a knowledge vault. Please select a user folder.")
 
     # Check against blacklist
     for blocked_dir in SYSTEM_BLACKLIST:
