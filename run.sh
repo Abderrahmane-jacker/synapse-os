@@ -41,10 +41,16 @@ mkdir -p "$PROJECT_ROOT/data/vaults"
 mkdir -p "$PROJECT_ROOT/chroma_data"
 
 # 1. Check Ollama
-if ! curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
-    echo "[+] Starting Ollama server..."
+if ! command -v ollama > /dev/null 2>&1; then
+    echo "[!] WARNING: 'ollama' is not installed on this machine."
+    echo "    To run local models, install Ollama: curl -fsSL https://ollama.com/install.sh | sh"
+    echo "    (Or use cloud models via OpenAI/Anthropic/Gemini/OmniRoute in Settings)"
+elif ! curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
+    echo "[+] Starting local Ollama server..."
     ollama serve > /dev/null 2>&1 &
     sleep 2
+else
+    echo "[✓] Ollama is running on http://localhost:11434"
 fi
 
 # 2. Check PostgreSQL
